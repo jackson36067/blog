@@ -35,10 +35,11 @@ type LoginResponse struct {
 	Nickname string `json:"nickname"`
 	Avatar   string `json:"avatar"`
 	Token    string `json:"token"`
+	Email    string `json:"email"`
 }
 
-func NewLoginResponse(userID uint, username string, nickname string, avatar string, token string) *LoginResponse {
-	return &LoginResponse{UserID: userID, Username: username, Nickname: nickname, Avatar: avatar, Token: token}
+func NewLoginResponse(userID uint, username string, nickname string, avatar string, token string, email string) *LoginResponse {
+	return &LoginResponse{UserID: userID, Username: username, Nickname: nickname, Avatar: avatar, Token: token, Email: email}
 }
 
 func (LoginApi) LoginView(c *gin.Context) {
@@ -100,6 +101,6 @@ func (LoginApi) LoginView(c *gin.Context) {
 		res.Fail(c, http.StatusInternalServerError, consts.GenJwtError)
 	}
 	// 生成用户信息结构体返回
-	var loginResponse = NewLoginResponse(user.ID, user.Username, user.Nickname, user.Avatar, token)
+	var loginResponse = NewLoginResponse(user.ID, user.Username, user.Nickname, user.Avatar, token, user.Email)
 	res.Success(c, loginResponse, consts.LoginSuccess)
 }

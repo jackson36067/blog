@@ -2,6 +2,7 @@ package routers
 
 import (
 	"blog/global"
+	"blog/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -9,6 +10,8 @@ import (
 func Run() {
 	// 初始化路由
 	router := gin.Default()
+	// 挂载跨域中间件, 对所有路由生效
+	router.Use(middleware.Cors())
 	// 挂载路由并进行路由分组
 	// 1.登录, 注册, 发送验证码路由,
 	loginOrRegisterRouterGroup := router.Group("/api")

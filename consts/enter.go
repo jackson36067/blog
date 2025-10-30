@@ -38,9 +38,11 @@ const (
 
 // 邮箱相关常量
 const (
-	SendMailError   = "发送邮件失败"
-	SendMailSuccess = "邮件发送成功"
-	EmailOrCodeNull = "邮箱或验证码不能为空"
-	EmailExist      = "邮箱已被注册, 请更换"
-	CodeError       = "验证码错误, 请重新获取"
+	SendMailError    = "发送邮件失败"
+	SendMailSuccess  = "邮件发送成功"
+	EmailOrCodeNull  = "邮箱或验证码不能为空"
+	EmailExist       = "邮箱已被注册, 请更换"
+	CodeError        = "验证码错误, 请重新获取"
+	EmailSubject     = "jackson-blog登录验证码"
+	SendEmailSuccess = "获取验证码成功"
 )
