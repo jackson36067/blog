@@ -52,14 +52,5 @@ func ParseToken(tokenString string) (*Claims, error) {
 		return claims, nil
 	}
 
-	return nil, errors.New(consts.InValidToken)
-}
-
-// IsTokenExpired 检查 Token 是否过期
-func IsTokenExpired(tokenString string) bool {
-	claims, err := ParseToken(tokenString)
-	if err != nil {
-		return true
-	}
-	return claims.ExpiresAt.Time.Before(time.Now())
+	return nil, errors.New(consts.InvalidToken)
 }

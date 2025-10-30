@@ -23,6 +23,9 @@ func Run() {
 	EmailRouter(loginOrRegisterRouterGroup)
 	// 2.不需要登录就可以访问的路由
 	// 3.需要登录访问的路由
+	needAuthorizationRouterGroup := router.Group("/api")
+	needAuthorizationRouterGroup.Use(middleware.JwtVerify())
+	UserRouter(needAuthorizationRouterGroup)
 	systemConf := global.Conf.System
 	// 启动路由
 	router.Run(systemConf.Host + ":" + systemConf.Port)

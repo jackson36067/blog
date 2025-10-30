@@ -8,16 +8,13 @@ const (
 	UserNotFound      = "用户不存在"
 	PwdError          = "密码错误"
 	UsernameExist     = "用户名已被使用, 请更换一个"
+	UserId            = "userId"
 )
 
-// 登录相关的常量
+// 登录,注册相关的常量
 const (
 	LoginSuccess    = "登录成功"
 	UnknowLoginType = "未知的登录方式"
-)
-
-// 注册相关常量
-const (
 	RegisterSuccess = "注册成功"
 )
 
@@ -32,8 +29,10 @@ const (
 	Issuer         = "gin-jwt-demo"
 	ExpireDuration = time.Hour * 24 * 7
 	Subject        = "user token"
-	InValidToken   = "无效token"
+	InvalidToken   = "无效token"
 	GenJwtError    = "生成jwt令牌失败"
+	TokenNull      = "token为空"
+	ExpireToken    = "token已过期，请重新登录"
 )
 
 // 邮箱相关常量

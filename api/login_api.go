@@ -30,16 +30,20 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	UserID   uint   `json:"userId"`
-	Username string `json:"username"`
-	Nickname string `json:"nickname"`
-	Avatar   string `json:"avatar"`
-	Token    string `json:"token"`
-	Email    string `json:"email"`
+	UserID       uint   `json:"userId"`
+	Username     string `json:"username"`
+	Nickname     string `json:"nickname"`
+	Avatar       string `json:"avatar"`
+	Token        string `json:"token"`
+	Email        string `json:"email"`
+	CodeAge      int    `json:"codeAge"`
+	Fans         int    `json:"fans"`
+	Following    int    `json:"following"`
+	ArticleLikes int    `json:"articleLikes"`
 }
 
-func NewLoginResponse(userID uint, username string, nickname string, avatar string, token string, email string) *LoginResponse {
-	return &LoginResponse{UserID: userID, Username: username, Nickname: nickname, Avatar: avatar, Token: token, Email: email}
+func NewLoginResponse(userID uint, username string, nickname string, avatar string, token string, email string, codeAge int, fans int, following int, articleLikes int) *LoginResponse {
+	return &LoginResponse{UserID: userID, Username: username, Nickname: nickname, Avatar: avatar, Token: token, Email: email, CodeAge: codeAge, Fans: fans, Following: following, ArticleLikes: articleLikes}
 }
 
 func (LoginApi) LoginView(c *gin.Context) {
@@ -100,7 +104,7 @@ func (LoginApi) LoginView(c *gin.Context) {
 	if err != nil {
 		res.Fail(c, http.StatusInternalServerError, consts.GenJwtError)
 	}
-	// 生成用户信息结构体返回
-	var loginResponse = NewLoginResponse(user.ID, user.Username, user.Nickname, user.Avatar, token, user.Email)
+	// 生成用户信息结构体返回, TODO: 获取粉丝数, 关注数, 获取点赞数
+	var loginResponse = NewLoginResponse(user.ID, user.Username, user.Nickname, user.Avatar, token, user.Email, user.CodeAge, 28, 201, 1182)
 	res.Success(c, loginResponse, consts.LoginSuccess)
 }

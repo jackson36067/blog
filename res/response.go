@@ -15,9 +15,6 @@ type Response struct {
 
 // Success 返回成功响应
 func Success(c *gin.Context, data any, msg string) {
-	if msg == "" {
-		msg = "操作成功"
-	}
 	c.JSON(http.StatusOK, Response{
 		Code:    200,
 		Message: msg,
@@ -29,9 +26,6 @@ func Success(c *gin.Context, data any, msg string) {
 func Fail(c *gin.Context, code int, msg string) {
 	if code == 0 {
 		code = 400
-	}
-	if msg == "" {
-		msg = "操作失败"
 	}
 	c.JSON(http.StatusBadRequest, Response{
 		Code:    code,
