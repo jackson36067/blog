@@ -5,6 +5,7 @@ type Api struct {
 	RegisterApi RegisterApi
 	EmailApi    EmailApi
 	UserApi     UserApi
+	ArticleApi  ArticleApi
 }
 
 var App = Api{}

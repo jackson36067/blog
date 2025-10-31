@@ -51,7 +51,7 @@ func (LoginApi) LoginView(c *gin.Context) {
 	var loginRequest LoginRequest
 	// 解析请求体json参数
 	if err := c.ShouldBindJSON(&loginRequest); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		res.Fail(c, http.StatusBadRequest, err.Error())
 	}
 	db := global.MysqlDB
 	// 保存用户信息

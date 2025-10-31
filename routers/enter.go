@@ -13,19 +13,17 @@ func Run() {
 	// 挂载跨域中间件, 对所有路由生效
 	router.Use(middleware.Cors())
 	// 挂载路由并进行路由分组
-	// 1.登录, 注册, 发送验证码路由,
-	loginOrRegisterRouterGroup := router.Group("/api")
+	routerGroups := router.Group("/api")
 	// 登录路由
-	LoginRouter(loginOrRegisterRouterGroup)
+	LoginRouter(routerGroups)
 	// 注册路由
-	RegisterRouter(loginOrRegisterRouterGroup)
+	RegisterRouter(routerGroups)
 	// 发送验证码路由
-	EmailRouter(loginOrRegisterRouterGroup)
-	// 2.不需要登录就可以访问的路由
-	// 3.需要登录访问的路由
-	needAuthorizationRouterGroup := router.Group("/api")
-	needAuthorizationRouterGroup.Use(middleware.JwtVerify())
-	UserRouter(needAuthorizationRouterGroup)
+	EmailRouter(routerGroups)
+	// 文章路由
+	ArticleRouter(routerGroups)
+	// 用户路由
+	UserRouter(routerGroups)
 	systemConf := global.Conf.System
 	// 启动路由
 	router.Run(systemConf.Host + ":" + systemConf.Port)
