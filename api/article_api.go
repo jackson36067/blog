@@ -1,6 +1,7 @@
 package api
 
 import (
+	"blog/consts"
 	"blog/enum"
 	"blog/global"
 	"blog/models"
@@ -16,7 +17,7 @@ import (
 type ArticleApi struct {
 }
 
-type HomeArticleQueryParams struct {
+type ArticleQueryParams struct {
 	Page       int      `form:"page" binding:"required"`
 	PageSize   int      `form:"pageSize" binding:"required"`
 	Title      string   `form:"title"`      // 文章标题
@@ -25,7 +26,7 @@ type HomeArticleQueryParams struct {
 	UserId     uint     `form:"userId"`     // 文章所属用户
 }
 
-type HomeArticleResponse struct {
+type ArticleResponse struct {
 	Id            uint     `json:"id"` // 文章id
 	Title         string   `json:"title"`
 	Abstract      string   `json:"abstract"`
@@ -43,7 +44,7 @@ type HomeArticleResponse struct {
 // GetHomeArticleView 根据条件获取文章列表
 func (ArticleApi) GetHomeArticleView(c *gin.Context) {
 	// 解析请求参数
-	var homeArticleQueryParams HomeArticleQueryParams
+	var homeArticleQueryParams ArticleQueryParams
 	if err := c.ShouldBindQuery(&homeArticleQueryParams); err != nil {
 		res.Fail(c, http.StatusBadRequest, err.Error())
 	}
@@ -76,8 +77,8 @@ func (ArticleApi) GetHomeArticleView(c *gin.Context) {
 	var articles []models.Article
 	tx.Order("created_at desc").Offset(offset).Limit(pageSize).Find(&articles)
 	totalPages := int(math.Ceil(float64(total) / float64(pageSize)))
-	homeArticleResponse := utils.MapSlice(articles, func(a models.Article) HomeArticleResponse {
-		return HomeArticleResponse{
+	homeArticleResponse := utils.MapSlice(articles, func(a models.Article) ArticleResponse {
+		return ArticleResponse{
 			Id:            a.ID,
 			Title:         a.Title,
 			Abstract:      a.Abstract,
@@ -94,4 +95,26 @@ func (ArticleApi) GetHomeArticleView(c *gin.Context) {
 	})
 	pagination := res.NewPagination(page, pageSize, total, totalPages, homeArticleResponse)
 	res.Success(c, pagination, "")
+}
+
+// GetUserTopArticleListView 获取用户置顶文章
+func (ArticleApi) GetUserTopArticleListView(c *gin.Context) {
+	userId, _ := c.Get(consts.UserId)
+	db := global.MysqlDB
+	var userTopArticleList []models.UserTopArticle
+	db.Preload("Article").
+		Where("user_id = ?", userId).
+		Order("created_at desc").
+		Find(&userTopArticleList)
+	userTopArticleResponse := utils.MapSlice(userTopArticleList, func(userTopArticle models.UserTopArticle) ArticleResponse {
+		article := userTopArticle.Article
+		if article == nil {
+			return ArticleResponse{} // 防止空指针
+		}
+		return ArticleResponse{
+			Id:    article.ID,
+			Title: article.Title,
+		}
+	})
+	res.Success(c, userTopArticleResponse, "")
 }

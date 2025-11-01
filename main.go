@@ -18,5 +18,7 @@ func main() {
 	global.MysqlDB = core.InitMysql()
 	// 初始化redis连接
 	global.RedisDB, global.Ctx = core.InitRedis()
+	// 数据库迁移
+	flags.Run()
 	routers.Run()
 }

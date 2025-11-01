@@ -24,6 +24,8 @@ func Run() {
 	ArticleRouter(routerGroups)
 	// 用户路由
 	UserRouter(routerGroups)
+	// 文章标签路由
+	ArticleTagRouter(routerGroups)
 	systemConf := global.Conf.System
 	// 启动路由
 	router.Run(systemConf.Host + ":" + systemConf.Port)
