@@ -18,4 +18,6 @@ func ArticleRouter(router *gin.RouterGroup) {
 	private := router.Group("/article")
 	private.Use(middleware.JwtVerify())
 	private.GET("/top", app.GetUserTopArticleListView)
+	private.GET("/my", app.GetUserArticlePaginationView)
+	private.GET("/statistic", app.GetUserArticleCreateProcess)
 }

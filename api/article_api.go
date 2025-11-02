@@ -8,6 +8,7 @@ import (
 	"blog/global"
 	"blog/models"
 	"blog/res"
+	"blog/service"
 	"blog/utils"
 	"fmt"
 	"math"
@@ -145,4 +146,61 @@ func (ArticleApi) GetArticleHotTagsAndRandCategoryView(c *gin.Context) {
 		Find(&hotArticleTagList)
 	var articleTagsAndCategoryList = response.ArticleHotTagsAndRandCategoryResponse{ArticleTags: hotArticleTagList, ArticleCategories: articleCategoryList}
 	res.Success(c, articleTagsAndCategoryList, "")
+}
+
+func (ArticleApi) GetUserArticlePaginationView(c *gin.Context) {
+	var myArticleQueryParam request.MyArticleQueryParams
+	userId, _ := c.Get(consts.UserId)
+	if err := c.ShouldBindQuery(&myArticleQueryParam); err != nil {
+		res.Fail(c, http.StatusBadRequest, err.Error())
+	}
+	db := global.MysqlDB
+	tx := db.Model(&models.Article{})
+	tx = tx.Where("user_id = ?", userId)
+	if myArticleQueryParam.Visibility == enum.Private {
+		tx = tx.Where("visibility = ?", enum.Private)
+	}
+	startTime := myArticleQueryParam.StartTime
+	endTime := myArticleQueryParam.EndTime
+	if !startTime.IsZero() && !endTime.IsZero() {
+		tx = tx.Where("created_at BETWEEN ? AND ?", startTime, endTime)
+	}
+	page := myArticleQueryParam.Page
+	pageSize := myArticleQueryParam.PageSize
+	offset := (page - 1) * pageSize
+	var articleList []models.Article
+	var total int64
+	tx.Count(&total)
+	tx.Debug().Order(fmt.Sprintf("%s %s", myArticleQueryParam.OrderBy, myArticleQueryParam.OrderType)).Offset(offset).Limit(pageSize).Find(&articleList)
+	totalPages := int(math.Ceil(float64(total) / float64(pageSize)))
+	myArticleList := utils.MapSlice(articleList, func(a models.Article) response.ArticleResponse {
+		return response.ArticleResponse{
+			Id:            a.ID,
+			Title:         a.Title,
+			Abstract:      a.Abstract,
+			Content:       a.Content,
+			Coverage:      a.Coverage,
+			Tags:          a.TagList,
+			BrowseCount:   a.BrowseCount,
+			LikeCount:     a.LikeCount,
+			CommentCount:  a.CommentCount,
+			CollectCount:  a.CollectCount,
+			CreatedAt:     a.CreatedAt.Format("2006-01-02 15:04:05"),
+			PublicComment: a.PublicComment,
+		}
+	})
+	pagination := res.NewPagination(page, pageSize, total, totalPages, myArticleList)
+	res.Success(c, pagination, "")
+}
+
+func (ArticleApi) GetUserArticleCreateProcess(c *gin.Context) {
+	userId, _ := c.Get(consts.UserId)
+	db := global.MysqlDB
+	var articles []response.ArticleStatistic
+	db.Debug().Model(&models.Article{}).
+		Where("user_id = ?", userId).
+		Select("id,created_at").
+		Find(&articles)
+	userArticleCreateProcess := service.GroupArticlesByYearAndMonth(articles)
+	res.Success(c, userArticleCreateProcess, "")
 }

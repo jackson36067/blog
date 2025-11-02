@@ -1,6 +1,8 @@
 package models
 
-import "blog/enum"
+import (
+	"blog/enum"
+)
 
 // Article 文章表
 type Article struct {
