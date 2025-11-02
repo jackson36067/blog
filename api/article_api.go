@@ -118,3 +118,29 @@ func (ArticleApi) GetUserTopArticleListView(c *gin.Context) {
 	})
 	res.Success(c, userTopArticleResponse, "")
 }
+
+type ArticleHotTagsAndRandCategoryResponse struct {
+	ArticleTags       []models.ArticleTag      `json:"articleTags"`
+	ArticleCategories []models.ArticleCategory `json:"articleCategories"`
+}
+
+// GetArticleHotTagsAndRandCategoryView 获取10条热门文章标签以及5条随机文章分类
+func (ArticleApi) GetArticleHotTagsAndRandCategoryView(c *gin.Context) {
+	db := global.MysqlDB
+	var articleCategoryList []models.ArticleCategory
+	// 随机获取5个文章分类
+	db.
+		Order("RAND()").
+		Offset(0).
+		Limit(5).
+		Find(&articleCategoryList)
+	// 获取10个热门文章标签
+	var hotArticleTagList []models.ArticleTag
+	db.
+		Order("browse_count desc").
+		Offset(0).
+		Limit(10).
+		Find(&hotArticleTagList)
+	var articleTagsAndCategoryList = ArticleHotTagsAndRandCategoryResponse{hotArticleTagList, articleCategoryList}
+	res.Success(c, articleTagsAndCategoryList, "")
+}
