@@ -2,6 +2,8 @@ package api
 
 import (
 	"blog/consts"
+	"blog/dto/request"
+	"blog/dto/response"
 	"blog/enum"
 	"blog/global"
 	"blog/models"
@@ -10,6 +12,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,68 +20,72 @@ import (
 type ArticleApi struct {
 }
 
-type ArticleQueryParams struct {
-	Page       int      `form:"page" binding:"required"`
-	PageSize   int      `form:"pageSize" binding:"required"`
-	Title      string   `form:"title"`      // 文章标题
-	CategoryId uint     `form:"categoryId"` // 文章分类
-	Tags       []string `form:"tags"`       // 文章标签
-	UserId     uint     `form:"userId"`     // 文章所属用户
-}
-
-type ArticleResponse struct {
-	Id            uint     `json:"id"` // 文章id
-	Title         string   `json:"title"`
-	Abstract      string   `json:"abstract"`
-	Content       string   `json:"content"`
-	Coverage      string   `json:"coverage"`
-	Tags          []string `json:"tags"`
-	CreatedAt     string   `json:"createdAt"`
-	BrowseCount   int      `json:"browseCount"`
-	LikeCount     int      `json:"likeCount"`
-	CommentCount  int      `json:"commentCount"`
-	CollectCount  int      `json:"collectCount"`
-	PublicComment bool     `json:"publicComment"`
-}
-
 // GetHomeArticleView 根据条件获取文章列表
 func (ArticleApi) GetHomeArticleView(c *gin.Context) {
+	// 判断是游客状态还是登录状态
+	authHeader := c.GetHeader("Authorization")
+	var userId uint
+	var isLoggedIn bool
+
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+		if claims, err := utils.ParseToken(tokenStr); err == nil {
+			userId = claims.UserID
+			isLoggedIn = true
+		}
+	}
+
 	// 解析请求参数
-	var homeArticleQueryParams ArticleQueryParams
-	if err := c.ShouldBindQuery(&homeArticleQueryParams); err != nil {
+	var articleQueryParams request.ArticleQueryParams
+	if err := c.ShouldBindQuery(&articleQueryParams); err != nil {
 		res.Fail(c, http.StatusBadRequest, err.Error())
 	}
 	// 封装查询条件
 	db := global.MysqlDB
 	tx := db.Model(&models.Article{}).Preload("Category").Preload("User")
-	if homeArticleQueryParams.UserId != 0 {
-		tx = tx.Where("user_id = ?", homeArticleQueryParams.UserId)
+	if articleQueryParams.UserId != 0 {
+		tx = tx.Where("user_id = ?", articleQueryParams.UserId)
 	}
-	if homeArticleQueryParams.CategoryId != 0 {
-		tx = tx.Where("category_id = ?", homeArticleQueryParams.CategoryId)
+	if articleQueryParams.CategoryId != 0 {
+		tx = tx.Where("category_id = ?", articleQueryParams.CategoryId)
 	}
-	if homeArticleQueryParams.Title != "" {
-		tx = tx.Where("title like ?", "%"+homeArticleQueryParams.Title+"%")
+	if articleQueryParams.Title != "" {
+		tx = tx.Where("title like ?", "%"+articleQueryParams.Title+"%")
 	}
-	if len(homeArticleQueryParams.Tags) > 0 {
-		for _, tag := range homeArticleQueryParams.Tags {
+	if len(articleQueryParams.Tags) > 0 {
+		for _, tag := range articleQueryParams.Tags {
 			// 每个标签都要匹配，意味着文章必须包含这些标签
 			tx = tx.Where("JSON_CONTAINS(tag_list, ?)", fmt.Sprintf(`"%s"`, tag))
 		}
 	}
 	tx = tx.Where("status = ?", enum.Published)
-	page := homeArticleQueryParams.Page
-	pageSize := homeArticleQueryParams.PageSize
+
+	// 游客状态 -> 仅展示公开文章
+	if !isLoggedIn {
+		tx = tx.Where("visibility = ?", enum.Public)
+	} else { // 登录状态 -> 自己的全部 + 公开文章 + 已关注作者的粉丝文章
+		// 获取我关注的作者列表
+		var followedIDs []uint
+		db.Model(&models.UserFollow{}).
+			Where("follower_id = ?", userId).
+			Pluck("followed_id", &followedIDs)
+		tx = tx.Where("user_id = ?", userId).
+			Or("visibility = ?", enum.Public).
+			Or("visibility = ? and user_id in ?", enum.Fans, followedIDs) // 可见范围为仅粉丝可见的文章判断当前登录用户是否关注作者
+	}
+
+	page := articleQueryParams.Page
+	pageSize := articleQueryParams.PageSize
 	offset := (page - 1) * pageSize
 	var total int64
 	// 计算总元素数量
 	tx.Count(&total)
 	// 分页查询
 	var articles []models.Article
-	tx.Order("created_at desc").Offset(offset).Limit(pageSize).Find(&articles)
+	tx.Debug().Order("created_at desc").Offset(offset).Limit(pageSize).Find(&articles)
 	totalPages := int(math.Ceil(float64(total) / float64(pageSize)))
-	homeArticleResponse := utils.MapSlice(articles, func(a models.Article) ArticleResponse {
-		return ArticleResponse{
+	homeArticleResponse := utils.MapSlice(articles, func(a models.Article) response.ArticleResponse {
+		return response.ArticleResponse{
 			Id:            a.ID,
 			Title:         a.Title,
 			Abstract:      a.Abstract,
@@ -106,22 +113,17 @@ func (ArticleApi) GetUserTopArticleListView(c *gin.Context) {
 		Where("user_id = ?", userId).
 		Order("created_at desc").
 		Find(&userTopArticleList)
-	userTopArticleResponse := utils.MapSlice(userTopArticleList, func(userTopArticle models.UserTopArticle) ArticleResponse {
+	userTopArticleResponse := utils.MapSlice(userTopArticleList, func(userTopArticle models.UserTopArticle) response.ArticleResponse {
 		article := userTopArticle.Article
 		if article == nil {
-			return ArticleResponse{} // 防止空指针
+			return response.ArticleResponse{} // 防止空指针
 		}
-		return ArticleResponse{
+		return response.ArticleResponse{
 			Id:    article.ID,
 			Title: article.Title,
 		}
 	})
 	res.Success(c, userTopArticleResponse, "")
-}
-
-type ArticleHotTagsAndRandCategoryResponse struct {
-	ArticleTags       []models.ArticleTag      `json:"articleTags"`
-	ArticleCategories []models.ArticleCategory `json:"articleCategories"`
 }
 
 // GetArticleHotTagsAndRandCategoryView 获取10条热门文章标签以及5条随机文章分类
@@ -141,6 +143,6 @@ func (ArticleApi) GetArticleHotTagsAndRandCategoryView(c *gin.Context) {
 		Offset(0).
 		Limit(10).
 		Find(&hotArticleTagList)
-	var articleTagsAndCategoryList = ArticleHotTagsAndRandCategoryResponse{hotArticleTagList, articleCategoryList}
+	var articleTagsAndCategoryList = response.ArticleHotTagsAndRandCategoryResponse{ArticleTags: hotArticleTagList, ArticleCategories: articleCategoryList}
 	res.Success(c, articleTagsAndCategoryList, "")
 }
