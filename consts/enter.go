@@ -45,3 +45,11 @@ const (
 	EmailSubject     = "jackson-blog登录验证码"
 	SendEmailSuccess = "获取验证码成功"
 )
+
+// IpParseError IP相关常量
+const (
+	IpParseError        = "获取Ip失败"
+	InvalidIp           = "无效的IP地址"
+	LoadIpDatabaseError = "ip地址数据库加载失败"
+	Localhost           = "本机"
+)
