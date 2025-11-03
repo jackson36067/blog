@@ -16,4 +16,5 @@ func UserRouter(router *gin.RouterGroup) {
 	private.Use(middleware.JwtVerify())
 	private.GET("/data", app.GetUserDataView)
 	private.GET("/achievement", app.GetUserAchievementListView)
+	private.GET("/likes", app.GetUserLikeArticlesView)
 }

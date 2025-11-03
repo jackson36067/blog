@@ -46,10 +46,15 @@ const (
 	SendEmailSuccess = "获取验证码成功"
 )
 
-// IpParseError IP相关常量
+// IP相关常量
 const (
 	IpParseError        = "获取Ip失败"
 	InvalidIp           = "无效的IP地址"
 	LoadIpDatabaseError = "ip地址数据库加载失败"
 	Localhost           = "本机"
+)
+
+// RequestParamParseError 用于请求参数获取失败提示
+const (
+	RequestParamParseError = "请求参数解析失败"
 )

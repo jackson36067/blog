@@ -3,10 +3,15 @@ package api
 import (
 	"blog/consts"
 	"blog/core"
+	"blog/dto/request"
 	"blog/dto/response"
 	"blog/global"
 	"blog/models"
 	"blog/res"
+	"blog/utils"
+	"fmt"
+	"math"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -70,4 +75,56 @@ func (UserApi) GetUserAchievementListView(c *gin.Context) {
 		TotalComments: totalComments,
 	}
 	res.Success(c, userAchievement, "")
+}
+
+func (UserApi) GetUserLikeArticlesView(c *gin.Context) {
+	userId, _ := c.Get(consts.UserId)
+	db := global.MysqlDB
+	var userLikeRequestParams request.UserLikesRequest
+	var userLikeArticleIds []int
+	err := c.ShouldBindQuery(&userLikeRequestParams)
+	if err != nil {
+		res.Fail(c, 500, consts.RequestParamParseError)
+	}
+	db.Model(&models.ArticleLike{}).
+		Where("user_id = ?", userId).
+		Order("created_at desc").
+		Pluck("article_id", &userLikeArticleIds)
+	var articles []models.Article
+	page := userLikeRequestParams.Page
+	pageSize := userLikeRequestParams.PageSize
+	tx := db.Model(&models.Article{})
+	tx = tx.Where("id in (?)", userLikeArticleIds)
+	var total int64
+	tx = tx.Count(&total)
+	tx = tx.
+		Order(fmt.Sprintf("FIELD(id, %s)", strings.Trim(strings.Join(strings.Fields(fmt.Sprint(userLikeArticleIds)), ","), "[]"))).
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
+		Find(&articles)
+	articleResponse := utils.MapSlice(articles, func(article models.Article) response.ArticleResponse {
+		return response.ArticleResponse{
+			Id:            article.ID,
+			Title:         article.Title,
+			Abstract:      article.Abstract,
+			Content:       article.Content,
+			Coverage:      article.Coverage,
+			Tags:          article.TagList,
+			CreatedAt:     article.CreatedAt.Format("2006-01-02 15:04:05"),
+			BrowseCount:   article.BrowseCount,
+			LikeCount:     article.LikeCount,
+			CommentCount:  article.CommentCount,
+			CollectCount:  article.CollectCount,
+			PublicComment: article.PublicComment,
+		}
+	})
+	totalPage := int(math.Ceil(float64(total) / float64(pageSize)))
+	pagination := res.Pagination{
+		Page:          page,
+		PageSize:      pageSize,
+		TotalElements: total,
+		TotalPages:    totalPage,
+		Data:          articleResponse,
+	}
+	res.Success(c, pagination, "")
 }
