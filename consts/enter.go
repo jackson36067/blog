@@ -58,3 +58,8 @@ const (
 const (
 	RequestParamParseError = "请求参数解析失败"
 )
+
+// ClearUserBrowseHistorySuccess 响应信息相关常量
+const (
+	ClearUserBrowseHistorySuccess = "清空历史成功"
+)

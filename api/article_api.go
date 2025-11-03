@@ -174,3 +174,10 @@ func (ArticleApi) GetUserArticleCreateProcess(c *gin.Context) {
 	userArticleCreateProcess := service.GroupArticlesByYearAndMonth(articles)
 	res.Success(c, userArticleCreateProcess, "")
 }
+
+func (ArticleApi) ClearUserBrowseArticleHistoryView(c *gin.Context) {
+	userId, _ := c.Get(consts.UserId)
+	db := global.MysqlDB
+	db.Delete(&models.UserArticleBrowseHistory{}, "user_id = ?", userId)
+	res.Success(c, nil, consts.ClearUserBrowseHistorySuccess)
+}
