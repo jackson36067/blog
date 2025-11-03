@@ -85,22 +85,7 @@ func (ArticleApi) GetHomeArticleView(c *gin.Context) {
 	var articles []models.Article
 	tx.Debug().Order("created_at desc").Offset(offset).Limit(pageSize).Find(&articles)
 	totalPages := int(math.Ceil(float64(total) / float64(pageSize)))
-	homeArticleResponse := utils.MapSlice(articles, func(a models.Article) response.ArticleResponse {
-		return response.ArticleResponse{
-			Id:            a.ID,
-			Title:         a.Title,
-			Abstract:      a.Abstract,
-			Content:       a.Content,
-			Coverage:      a.Coverage,
-			Tags:          a.TagList,
-			BrowseCount:   a.BrowseCount,
-			LikeCount:     a.LikeCount,
-			CommentCount:  a.CommentCount,
-			CollectCount:  a.CollectCount,
-			CreatedAt:     a.CreatedAt.Format("2006-01-02 15:04:05"),
-			PublicComment: a.PublicComment,
-		}
-	})
+	homeArticleResponse := service.ArticlesToArticleResponse(articles)
 	pagination := res.NewPagination(page, pageSize, total, totalPages, homeArticleResponse)
 	res.Success(c, pagination, "")
 }
@@ -173,22 +158,7 @@ func (ArticleApi) GetUserArticlePaginationView(c *gin.Context) {
 	tx.Count(&total)
 	tx.Debug().Order(fmt.Sprintf("%s %s", myArticleQueryParam.OrderBy, myArticleQueryParam.OrderType)).Offset(offset).Limit(pageSize).Find(&articleList)
 	totalPages := int(math.Ceil(float64(total) / float64(pageSize)))
-	myArticleList := utils.MapSlice(articleList, func(a models.Article) response.ArticleResponse {
-		return response.ArticleResponse{
-			Id:            a.ID,
-			Title:         a.Title,
-			Abstract:      a.Abstract,
-			Content:       a.Content,
-			Coverage:      a.Coverage,
-			Tags:          a.TagList,
-			BrowseCount:   a.BrowseCount,
-			LikeCount:     a.LikeCount,
-			CommentCount:  a.CommentCount,
-			CollectCount:  a.CollectCount,
-			CreatedAt:     a.CreatedAt.Format("2006-01-02 15:04:05"),
-			PublicComment: a.PublicComment,
-		}
-	})
+	myArticleList := service.ArticlesToArticleResponse(articleList)
 	pagination := res.NewPagination(page, pageSize, total, totalPages, myArticleList)
 	res.Success(c, pagination, "")
 }

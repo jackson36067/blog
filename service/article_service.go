@@ -2,6 +2,8 @@ package service
 
 import (
 	"blog/dto/response"
+	"blog/models"
+	"blog/utils"
 	"sort"
 	"time"
 )
@@ -74,6 +76,89 @@ func GroupArticlesByYearAndMonth(articleList []response.ArticleStatistic) []resp
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].Year > result[j].Year
 	})
+
+	return result
+}
+
+// ArticlesToArticleResponse 将article切片数据转换成article-response切片数据
+func ArticlesToArticleResponse(articles []models.Article) []response.ArticleResponse {
+	return utils.MapSlice(articles, func(article models.Article) response.ArticleResponse {
+		return response.ArticleResponse{
+			Id:            article.ID,
+			Title:         article.Title,
+			Abstract:      article.Abstract,
+			Content:       article.Content,
+			Coverage:      article.Coverage,
+			Tags:          article.TagList,
+			CreatedAt:     article.CreatedAt.Format("2006-01-02 15:04:05"),
+			BrowseCount:   article.BrowseCount,
+			LikeCount:     article.LikeCount,
+			CommentCount:  article.CommentCount,
+			CollectCount:  article.CollectCount,
+			PublicComment: article.PublicComment,
+		}
+	})
+}
+
+// GetArticleGroupedByTime 获取文章通过时间分组结果
+func GetArticleGroupedByTime(browseArticles []models.UserArticleBrowseHistory) []response.ArticleGroup {
+	now := time.Now()
+	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	startOfYesterday := startOfToday.AddDate(0, 0, -1)
+	startOfWeek := startOfToday.AddDate(0, 0, -7)
+	startOfYear := time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location())
+
+	groupMap := make(map[string][]response.ArticleResponse)
+	orderKeys := make([]string, 0) // 👉 保存出现顺序
+
+	for _, a := range browseArticles {
+		// 根据浏览时间排序
+		t := a.CreatedAt
+
+		var groupKey string
+		switch {
+		case t.After(startOfToday):
+			groupKey = "今日"
+		case t.After(startOfYesterday):
+			groupKey = "昨天"
+		case t.After(startOfWeek):
+			groupKey = "最近一周"
+		case t.After(startOfYear):
+			groupKey = t.Format("01-02") // 本年显示 MM-dd
+		default:
+			groupKey = t.Format("2006-01-02") // 往年显示 yyyy-MM-dd
+		}
+		article := a.Article
+		ar := response.ArticleResponse{
+			Id:            article.ID,
+			Title:         article.Title,
+			Abstract:      article.Abstract,
+			Content:       article.Content,
+			Coverage:      article.Coverage,
+			Tags:          article.TagList,
+			CreatedAt:     article.CreatedAt.Format("2006-01-02 15:04:05"),
+			BrowseCount:   article.BrowseCount,
+			LikeCount:     article.LikeCount,
+			CommentCount:  article.CommentCount,
+			CollectCount:  article.CollectCount,
+			PublicComment: article.PublicComment,
+		}
+		// 首次遇到该分组时记录顺序
+		if _, ok := groupMap[groupKey]; !ok {
+			orderKeys = append(orderKeys, groupKey)
+		}
+		groupMap[groupKey] = append(groupMap[groupKey], ar)
+	}
+
+	// 构造返回结果，保持顺序（从新到旧）
+	result := make([]response.ArticleGroup, 0, len(groupMap))
+	// 按记录顺序构建结果（此顺序即为按 created_at 排序的顺序）
+	for _, groupKey := range orderKeys {
+		result = append(result, response.ArticleGroup{
+			GroupTime: groupKey,
+			Articles:  groupMap[groupKey],
+		})
+	}
 
 	return result
 }

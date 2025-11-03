@@ -42,3 +42,8 @@ type ArticleYearStat struct {
 	TotalCount int                `json:"totalCount"`
 	Months     []ArticleMonthStat `json:"months"`
 }
+
+type ArticleGroup struct {
+	GroupTime string            `json:"groupTime"`
+	Articles  []ArticleResponse `json:"articles"`
+}

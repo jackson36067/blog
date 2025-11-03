@@ -8,7 +8,7 @@ import (
 	"blog/global"
 	"blog/models"
 	"blog/res"
-	"blog/utils"
+	"blog/service"
 	"fmt"
 	"math"
 	"strings"
@@ -102,22 +102,7 @@ func (UserApi) GetUserLikeArticlesView(c *gin.Context) {
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
 		Find(&articles)
-	articleResponse := utils.MapSlice(articles, func(article models.Article) response.ArticleResponse {
-		return response.ArticleResponse{
-			Id:            article.ID,
-			Title:         article.Title,
-			Abstract:      article.Abstract,
-			Content:       article.Content,
-			Coverage:      article.Coverage,
-			Tags:          article.TagList,
-			CreatedAt:     article.CreatedAt.Format("2006-01-02 15:04:05"),
-			BrowseCount:   article.BrowseCount,
-			LikeCount:     article.LikeCount,
-			CommentCount:  article.CommentCount,
-			CollectCount:  article.CollectCount,
-			PublicComment: article.PublicComment,
-		}
-	})
+	articleResponse := service.ArticlesToArticleResponse(articles)
 	totalPage := int(math.Ceil(float64(total) / float64(pageSize)))
 	pagination := res.Pagination{
 		Page:          page,
@@ -127,4 +112,17 @@ func (UserApi) GetUserLikeArticlesView(c *gin.Context) {
 		Data:          articleResponse,
 	}
 	res.Success(c, pagination, "")
+}
+
+func (UserApi) GetUserBrowseArticleHistoryView(c *gin.Context) {
+	userId, _ := c.Get(consts.UserId)
+	db := global.MysqlDB
+	var userBrowseArticles []models.UserArticleBrowseHistory
+	db.Model(&models.UserArticleBrowseHistory{}).
+		Preload("Article").
+		Where("user_id = ?", userId).
+		Order("created_at desc").
+		Find(&userBrowseArticles)
+	browseArticleGroup := service.GetArticleGroupedByTime(userBrowseArticles)
+	res.Success(c, browseArticleGroup, "")
 }
