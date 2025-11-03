@@ -46,3 +46,28 @@ func (UserApi) GetUserDataView(c *gin.Context) {
 	}
 	res.Success(c, userDataResponse, "")
 }
+
+// GetUserAchievementListView 获取用户的成就
+func (UserApi) GetUserAchievementListView(c *gin.Context) {
+	userId, _ := c.Get(consts.UserId)
+	db := global.MysqlDB
+	// 获取用户所有文章获取的总点赞次数
+	var userArticleIds []int
+	// 获取用户所有文章
+	db.Model(&models.Article{}).Where("user_id = ?", userId).Pluck("id", &userArticleIds)
+	var totalLikes int64
+	var totalCollects int64
+	var totalComments int64
+	// 获取用户所有文章的总共点赞
+	db.Model(&models.ArticleLike{}).Where("article_id in (?)", userArticleIds).Count(&totalLikes)
+	// 获取用户所有文章被收藏总数
+	db.Model(&models.UserArticleCollect{}).Where("article_id in (?)", userArticleIds).Count(&totalCollects)
+	// 获取用户所有文章的总评论数量
+	db.Model(&models.Comment{}).Where("article_id in (?)", userArticleIds).Count(&totalComments)
+	userAchievement := response.UserAchievementResponse{
+		TotalLikes:    totalLikes,
+		TotalCollects: totalCollects,
+		TotalComments: totalComments,
+	}
+	res.Success(c, userAchievement, "")
+}

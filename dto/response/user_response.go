@@ -9,3 +9,9 @@ type UserDataResponse struct {
 	CodeAge       int    `json:"codeAge"`       // 码龄
 	Avatar        string `json:"avatar"`        // 头像
 }
+
+type UserAchievementResponse struct {
+	TotalLikes    int64 `json:"totalLikes"`
+	TotalCollects int64 `json:"totalCollects"`
+	TotalComments int64 `json:"totalComments"`
+}
