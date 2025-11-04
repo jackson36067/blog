@@ -15,6 +15,7 @@ func MigrateDB() {
 		&models.ArticleCategory{},
 		&models.ArticleLike{},
 		&models.Favorite{},
+		&models.FavoriteArticles{},
 		&models.UserArticleCollect{},
 		&models.UserTopArticle{},
 		&models.Image{},

@@ -9,6 +9,7 @@ const (
 	PwdError          = "密码错误"
 	UsernameExist     = "用户名已被使用, 请更换一个"
 	UserId            = "userId"
+	UnKnowUserIdType  = "无法识别的用户ID类型"
 )
 
 // 登录,注册相关的常量
@@ -59,7 +60,23 @@ const (
 	RequestParamParseError = "请求参数解析失败"
 )
 
-// ClearUserBrowseHistorySuccess 响应信息相关常量
+// 响应信息相关常量
 const (
-	ClearUserBrowseHistorySuccess = "清空历史成功"
+	ClearUserBrowseHistorySuccess    = "清空历史成功"
+	NewFavoriteSuccess               = "新建收藏夹成功"
+	NoUpdateField                    = "未提供任何更新字段"
+	UpdateSuccess                    = "更新成功"
+	DeleteTargetFavoriteArticleError = "删除来源收藏夹记录失败"
+	InsertNewRecordError             = "插入新记录失败"
+	FindTargetFavoriteError          = "查询目标收藏夹失败"
+	MoveSuccess                      = "移动成功"
+	RemoveError                      = "移除博文失败"
+	RemoveSuccess                    = "移除成功"
+	DeleteFavoriteError              = "删除收藏夹失败"
+	DeleteFavoriteSuccess            = "删除收藏夹成功"
+)
+
+// AffairCommitError 事务相关常量
+const (
+	AffairCommitError = "事务提交失败"
 )
