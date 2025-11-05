@@ -17,8 +17,11 @@ type FavoriteApi struct{}
 
 // GetUserFavoriteListView 获取用户收藏夹列表
 func (FavoriteApi) GetUserFavoriteListView(c *gin.Context) {
-	userId, _ := c.Get(consts.UserId)
+	username := c.Query("username")
 	db := global.MysqlDB
+	// 根据用户名获取用户id
+	var userId uint
+	db.Model(&models.User{}).Where("username = ?", username).Pluck("id", &userId)
 	var favoriteList []models.Favorite
 	db.Preload("Articles").Where("user_id = ?", userId).Find(&favoriteList)
 	favoriteListResponse := utils.MapSlice(favoriteList, func(f models.Favorite) response.FavoriteListResponse {

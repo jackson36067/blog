@@ -15,3 +15,11 @@ type UserAchievementResponse struct {
 	TotalCollects int64 `json:"totalCollects"`
 	TotalComments int64 `json:"totalComments"`
 }
+
+type UserFollowResponse struct {
+	FollowedID uint   `json:"followedId"`
+	Username   string `json:"username"`
+	Avatar     string `json:"avatar"`
+	Abstract   string `json:"abstract"`
+	IsFollow   bool   `json:"isFollow"`
+}

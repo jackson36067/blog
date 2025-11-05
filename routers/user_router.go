@@ -18,4 +18,6 @@ func UserRouter(router *gin.RouterGroup) {
 	private.GET("/achievement", app.GetUserAchievementListView)
 	private.GET("/likes", app.GetUserLikeArticlesView)
 	private.GET("/browse/history", app.GetUserBrowseArticleHistoryView)
+	private.GET("/followed", app.GetUserFollowed)
+	private.POST("/follow/:id", app.UpdateFollow)
 }

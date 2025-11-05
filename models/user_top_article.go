@@ -6,8 +6,8 @@ import "time"
 type UserTopArticle struct {
 	ID        uint      `json:"id" gorm:"primary_key"`
 	UserID    uint      `json:"userId" gorm:"uniqueIndex:idx_user_top_article"`
-	User      *User     `json:"-" gorm:"foreignKey:UserID;references:ID"`
+	User      *User     `json:"-" gorm:"foreignKey:UserID;references:FollowedID"`
 	ArticleID uint      `json:"articleId" gorm:"uniqueIndex:idx_user_top_article"`
-	Article   *Article  `json:"-" gorm:"foreignKey:ArticleID;references:ID"`
+	Article   *Article  `json:"-" gorm:"foreignKey:ArticleID;references:FollowedID"`
 	CreatedAt time.Time `json:"createdAt"`
 }

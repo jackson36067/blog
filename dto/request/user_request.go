@@ -1,6 +1,11 @@
 package request
 
-type UserLikesRequest struct {
-	Page     int `form:"page"`
-	PageSize int `form:"pageSize"`
+type UserRequest struct {
+	Page     int    `form:"page"`
+	PageSize int    `form:"pageSize"`
+	Username string `form:"username"`
+}
+
+type UserFollowRequest struct {
+	IsFollow bool `json:"isFollow"`
 }

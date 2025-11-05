@@ -7,7 +7,7 @@ type Favorite struct {
 	Abstract  string    `json:"abstract" gorm:"size:255"` // 简介
 	Coverage  string    `json:"coverage" gorm:"size:255"`
 	UserID    uint      `json:"user_id"`
-	User      *User     `json:"-" gorm:"foreignKey:UserID;references:ID"`
+	User      *User     `json:"-" gorm:"foreignKey:UserID"`
 	Articles  []Article `json:"articles" gorm:"many2many:favorite_articles;joinForeignKey:favorite_id;joinReferences:article_id;"`
 	IsDefault bool      `json:"isDefault" gorm:"default:false"`
 }
