@@ -17,9 +17,17 @@ type UserAchievementResponse struct {
 }
 
 type UserFollowResponse struct {
-	FollowedID uint   `json:"followedId"`
-	Username   string `json:"username"`
-	Avatar     string `json:"avatar"`
-	Abstract   string `json:"abstract"`
-	IsFollow   bool   `json:"isFollow"`
+	ID       uint   `json:"id"`
+	Username string `json:"username"`
+	Avatar   string `json:"avatar"`
+	Abstract string `json:"abstract"`
+	IsFollow bool   `json:"isFollow"`
+}
+
+type UserCommentResponse struct {
+	CommentID uint   `json:"commentId"` // 评论id
+	ArticleID uint   `json:"articleId"` // 文章id
+	Content   string `json:"content"`   // 文章内容
+	Title     string `json:"title"`     // 评论文章标题
+	CreatedAt string `json:"createdAt"` // 评论时间
 }

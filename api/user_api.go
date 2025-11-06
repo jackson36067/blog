@@ -83,17 +83,19 @@ func (UserApi) GetUserAchievementListView(c *gin.Context) {
 
 // GetUserLikeArticlesView 获取用户的点赞博文列表
 func (UserApi) GetUserLikeArticlesView(c *gin.Context) {
-	db := global.MysqlDB
-	// 根据用户名查询用户
 	var userLikeRequestParams request.UserRequest
-	var userLikeArticleIds []int
 	err := c.ShouldBindQuery(&userLikeRequestParams)
 	if err != nil {
 		res.Fail(c, 500, consts.RequestParamParseError)
 	}
+	db := global.MysqlDB
 	// 根据用户名获取用户
 	var userId uint
-	db.Model(&models.User{}).Where("username = ?", userLikeRequestParams.Username).Pluck("id", &userId)
+	db.Model(&models.User{}).
+		Where("username = ?", userLikeRequestParams.Username).
+		Pluck("id", &userId)
+	// 获取用户点赞的文章id
+	var userLikeArticleIds []uint
 	db.Model(&models.ArticleLike{}).
 		Where("user_id = ?", userId).
 		Order("created_at desc").
@@ -101,11 +103,10 @@ func (UserApi) GetUserLikeArticlesView(c *gin.Context) {
 	var articles []models.Article
 	page := userLikeRequestParams.Page
 	pageSize := userLikeRequestParams.PageSize
-	tx := db.Model(&models.Article{})
-	tx = tx.Where("id in (?)", userLikeArticleIds)
 	var total int64
-	tx = tx.Count(&total)
-	tx = tx.
+	db.Model(&models.Article{}).
+		Where("id in (?)", userLikeArticleIds).
+		Count(&total).
 		Order(fmt.Sprintf("FIELD(id, %s)", strings.Trim(strings.Join(strings.Fields(fmt.Sprint(userLikeArticleIds)), ","), "[]"))).
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
@@ -166,11 +167,11 @@ func (UserApi) GetUserFollowed(c *gin.Context) {
 		var followed models.User
 		db.Where("id = ?", follow.FollowedID).Take(&followed)
 		return response.UserFollowResponse{
-			FollowedID: followed.ID,
-			Avatar:     followed.Avatar,
-			Abstract:   followed.Abstract,
-			Username:   followed.Username,
-			IsFollow:   true,
+			ID:       followed.ID,
+			Avatar:   followed.Avatar,
+			Abstract: followed.Abstract,
+			Username: followed.Username,
+			IsFollow: true,
 		}
 	})
 	var totalPage = int(math.Ceil(float64(total) / float64(pageSize)))
@@ -213,4 +214,122 @@ func (UserApi) UpdateFollow(c *gin.Context) {
 		})
 		res.Success(c, nil, "关注成功")
 	}
+}
+
+// GetUserFollower 分页获取用户粉丝列表
+func (UserApi) GetUserFollower(c *gin.Context) {
+	var userRequestParams request.UserRequest
+	err := c.ShouldBindQuery(&userRequestParams)
+	if err != nil {
+		res.Fail(c, 500, consts.RequestParamParseError)
+	}
+	db := global.MysqlDB
+	// 根据用户名查询用户id
+	var userId uint
+	db.Model(&models.User{}).Where("username = ?", userRequestParams.Username).Pluck("id", &userId)
+	// 查询用户的粉丝列表
+	page := userRequestParams.Page
+	pageSize := userRequestParams.PageSize
+	tx := db.Model(&models.UserFollow{}).Where("followed_id = ?", userId)
+	// 获取粉丝总数量
+	var total int64
+	tx = tx.Count(&total)
+	var userFollower []models.UserFollow
+	// 分页获取粉丝总数量
+	tx = tx.Order("created_at desc").
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
+		Find(&userFollower)
+	userFollowerResponse := utils.MapSlice(userFollower, func(follow models.UserFollow) response.UserFollowResponse {
+		var follower models.User
+		db.Where("id = ?", follow.FollowerID).Take(&follower)
+		// 判断用户是否关注其粉丝
+		var followed models.UserFollow
+		db.Where("follower_id = ? And followed_id = ?", userId, follower.ID).Find(&followed)
+		return response.UserFollowResponse{
+			ID:       follower.ID,
+			Avatar:   follower.Avatar,
+			Abstract: follower.Abstract,
+			Username: follower.Username,
+			IsFollow: followed.ID > 0,
+		}
+	})
+	var totalPage = int(math.Ceil(float64(total) / float64(pageSize)))
+	pagination := res.Pagination{
+		Page:          page,
+		PageSize:      pageSize,
+		TotalElements: total,
+		TotalPages:    totalPage,
+		Data:          userFollowerResponse,
+	}
+	res.Success(c, pagination, "")
+}
+
+// GetUserComments 分页获取用户发布/收到的评论
+func (UserApi) GetUserComments(c *gin.Context) {
+	var userCommentRequestParams request.UserCommentRequest
+	err := c.ShouldBindQuery(&userCommentRequestParams)
+	if err != nil {
+		res.Fail(c, 500, consts.RequestParamParseError)
+	}
+	db := global.MysqlDB
+	// 根据用户名查询用户id
+	var userId uint
+	db.Model(&models.User{}).
+		Where("username = ?", userCommentRequestParams.Username).
+		Pluck("id", &userId)
+	page := userCommentRequestParams.Page
+	pageSize := userCommentRequestParams.PageSize
+	// 判断获取自己发布的评论还是收到的评论
+	var total int64
+	var comments []models.Comment
+	switch userCommentRequestParams.Type {
+	case "in":
+		// 获取收到的评论
+		var articleIds []uint
+		// 获取文章并携带评论, 评论根据创建时间排序
+		db.Model(&models.Article{}).Where("user_id = ?", userId).Pluck("id", &articleIds)
+		if len(articleIds) == 0 {
+			comments = make([]models.Comment, 0)
+		} else {
+			db.Model(&models.Comment{}).
+				Where("article_id IN (?)", articleIds).
+				Preload("Article").
+				Order("created_at DESC").
+				Count(&total).
+				Offset((page - 1) * pageSize).
+				Limit(pageSize).
+				Find(&comments)
+		}
+	case "out":
+		// 获取自己发布的评论
+		db.Model(&models.Comment{}).
+			Where("user_id = ?", userId).
+			Preload("Article").
+			Order("created_at DESC").
+			//Count(&total).
+			Offset((page - 1) * pageSize).
+			Limit(pageSize).
+			Find(&comments)
+	default:
+		res.Fail(c, 500, consts.RequestParamParseError)
+	}
+	totalPage := int(math.Ceil(float64(total) / float64(pageSize)))
+	userCommentResponse := utils.MapSlice(comments, func(comment models.Comment) response.UserCommentResponse {
+		return response.UserCommentResponse{
+			CommentID: comment.ID,
+			ArticleID: comment.ArticleID,
+			Content:   comment.Content,
+			Title:     comment.Article.Title,
+			CreatedAt: comment.CreatedAt.Format("2006-01-02 15:04:05"),
+		}
+	})
+	pagination := res.Pagination{
+		Page:          page,
+		PageSize:      pageSize,
+		TotalElements: total,
+		TotalPages:    totalPage,
+		Data:          userCommentResponse,
+	}
+	res.Success(c, pagination, "")
 }

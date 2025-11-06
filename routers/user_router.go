@@ -20,4 +20,6 @@ func UserRouter(router *gin.RouterGroup) {
 	private.GET("/browse/history", app.GetUserBrowseArticleHistoryView)
 	private.GET("/followed", app.GetUserFollowed)
 	private.POST("/follow/:id", app.UpdateFollow)
+	private.GET("/follower", app.GetUserFollower)
+	private.GET("/comment", app.GetUserComments)
 }
