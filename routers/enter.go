@@ -26,6 +26,8 @@ func Run() {
 	UserRouter(routerGroups)
 	// 收藏级路由
 	FavoriteRouter(routerGroups)
+	// 文章分类路遇
+	CategoryRouter(routerGroups)
 	systemConf := global.Conf.System
 	// 启动路由
 	router.Run(systemConf.Host + ":" + systemConf.Port)

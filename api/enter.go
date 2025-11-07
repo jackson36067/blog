@@ -7,6 +7,7 @@ type Api struct {
 	UserApi     UserApi
 	ArticleApi  ArticleApi
 	FavoriteApi FavoriteApi
+	CategoryApi CategoryApi
 }
 
 var App = Api{}

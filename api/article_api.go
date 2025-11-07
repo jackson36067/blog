@@ -47,8 +47,10 @@ func (ArticleApi) GetHomeArticleView(c *gin.Context) {
 	if articleQueryParams.UserId != 0 {
 		tx = tx.Where("user_id = ?", articleQueryParams.UserId)
 	}
-	if articleQueryParams.CategoryId != 0 {
-		tx = tx.Where("category_id = ?", articleQueryParams.CategoryId)
+	if articleQueryParams.CategoryTitle != "" {
+		var categoryId uint
+		db.Model(&models.ArticleCategory{}).Where("title = ?", articleQueryParams.CategoryTitle).Pluck("id", &categoryId)
+		tx = tx.Where("category_id = ?", categoryId)
 	}
 	if articleQueryParams.Title != "" {
 		tx = tx.Where("title like ?", "%"+articleQueryParams.Title+"%")
@@ -59,20 +61,28 @@ func (ArticleApi) GetHomeArticleView(c *gin.Context) {
 			tx = tx.Where("JSON_CONTAINS(tag_list, ?)", fmt.Sprintf(`"%s"`, tag))
 		}
 	}
+
 	tx = tx.Where("status = ?", enum.Published)
 
 	// 游客状态 -> 仅展示公开文章
 	if !isLoggedIn {
-		tx = tx.Where("visibility = ?", enum.Public)
+		tx = tx.Where(
+			db.
+				Where("user_id = ?", userId).
+				Or("visibility = ?", enum.Public),
+		)
 	} else { // 登录状态 -> 自己的全部 + 公开文章 + 已关注作者的粉丝文章
 		// 获取我关注的作者列表
 		var followedIDs []uint
 		db.Model(&models.UserFollow{}).
 			Where("follower_id = ?", userId).
 			Pluck("followed_id", &followedIDs)
-		tx = tx.Where("user_id = ?", userId).
-			Or("visibility = ?", enum.Public).
-			Or("visibility = ? and user_id in ?", enum.Fans, followedIDs) // 可见范围为仅粉丝可见的文章判断当前登录用户是否关注作者
+		tx = tx.
+			Where(db.
+				Where("user_id = ?", userId).
+				Or("visibility = ?", enum.Public).
+				Or("visibility = ? and user_id in ?", enum.Fans, followedIDs),
+			)
 	}
 
 	page := articleQueryParams.Page
@@ -133,13 +143,16 @@ func (ArticleApi) GetArticleHotTagsAndRandCategoryView(c *gin.Context) {
 	res.Success(c, articleTagsAndCategoryList, "")
 }
 
+// GetUserArticlePaginationView 分页获取用户的文章
 func (ArticleApi) GetUserArticlePaginationView(c *gin.Context) {
 	var myArticleQueryParam request.MyArticleQueryParams
-	userId, _ := c.Get(consts.UserId)
+	var userId uint
 	if err := c.ShouldBindQuery(&myArticleQueryParam); err != nil {
 		res.Fail(c, http.StatusBadRequest, err.Error())
 	}
 	db := global.MysqlDB
+	// 根据用户名获取用户id
+	db.Model(&models.User{}).Where("username = ?", myArticleQueryParam.Username).Pluck("id", &userId)
 	tx := db.Model(&models.Article{})
 	tx = tx.Where("user_id = ?", userId)
 	if myArticleQueryParam.Visibility == enum.Private {
@@ -163,6 +176,7 @@ func (ArticleApi) GetUserArticlePaginationView(c *gin.Context) {
 	res.Success(c, pagination, "")
 }
 
+// GetUserArticleCreateProcess 获取文章创作历程
 func (ArticleApi) GetUserArticleCreateProcess(c *gin.Context) {
 	userId, _ := c.Get(consts.UserId)
 	db := global.MysqlDB
@@ -175,6 +189,7 @@ func (ArticleApi) GetUserArticleCreateProcess(c *gin.Context) {
 	res.Success(c, userArticleCreateProcess, "")
 }
 
+// ClearUserBrowseArticleHistoryView 清除用户历史浏览文章记录
 func (ArticleApi) ClearUserBrowseArticleHistoryView(c *gin.Context) {
 	userId, _ := c.Get(consts.UserId)
 	db := global.MysqlDB
