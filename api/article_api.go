@@ -196,3 +196,19 @@ func (ArticleApi) ClearUserBrowseArticleHistoryView(c *gin.Context) {
 	db.Delete(&models.UserArticleBrowseHistory{}, "user_id = ?", userId)
 	res.Success(c, nil, consts.ClearUserBrowseHistorySuccess)
 }
+
+// GetArticleCategoryList 分页获取文章分类列表
+func (ArticleApi) GetArticleCategoryList(c *gin.Context) {
+	db := global.MysqlDB
+	var categoryList []models.ArticleCategory
+	db.Find(&categoryList)
+	res.Success(c, categoryList, "")
+}
+
+// GetArticleTagList 获取文章标签列表
+func (ArticleApi) GetArticleTagList(c *gin.Context) {
+	db := global.MysqlDB
+	var articleTagList []models.ArticleTag
+	db.Find(&articleTagList)
+	res.Success(c, articleTagList, "")
+}
