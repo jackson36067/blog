@@ -9,6 +9,8 @@ type User struct {
 	Nickname       string      `json:"nickname" gorm:"size:32;not null"`
 	Avatar         string      `json:"avatar" gorm:"size:255;"`
 	Abstract       string      `json:"abstract" gorm:"size:255;"` // 简介
+	Sex            int8        `json:"sex"`                       // 性别
+	Birthday       time.Time   `json:"birthday"`                  // 生日
 	RegisterSource int8        `json:"registerSource"`            // 注册来源
 	Password       string      `json:"password" gorm:"size:120;"`
 	CodeAge        int         `json:"codeAge" gorm:"size:255;"` // 码龄
@@ -27,6 +29,6 @@ type UserConfig struct {
 	UpdateUsernameDate time.Time `json:"updateUsernameDate"`                             // 上次修改用户名时间
 	PublicCollectList  bool      `json:"publicCollectList"`                              // 公开我的收藏列表
 	PublicFollowList   bool      `json:"publicFollowList"`                               // 公开我的关注列表
-	PublicFanList      bool      `json:"publicFanList"`                                  //公开我的粉丝列表
+	PublicFanList      bool      `json:"publicFanList"`                                  // 公开我的粉丝列表
 	HomeStyleID        uint      `json:"homeStyleId"`                                    // 主页样式Id
 }

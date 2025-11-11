@@ -6,6 +6,7 @@ import (
 	"blog/models"
 	"blog/res"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -57,4 +58,17 @@ func (RegisterApi) RegisterView(c *gin.Context) {
 	user.Email = registerRequest.Email
 	db.Create(&user)
 	res.Success(c, nil, consts.RegisterSuccess)
+	// 异步生成用户配置信息
+	go func(userId uint) {
+		var userConfig = models.UserConfig{
+			UserID:             userId,
+			UpdateUsernameDate: time.Now(),
+			HobbyTags:          []string{},
+			PublicCollectList:  true,
+			PublicFanList:      true,
+			PublicFollowList:   true,
+			HomeStyleID:        1,
+		}
+		db.Create(&userConfig)
+	}(user.ID)
 }

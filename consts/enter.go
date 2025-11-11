@@ -14,9 +14,12 @@ const (
 
 // 登录,注册相关的常量
 const (
-	LoginSuccess    = "登录成功"
-	UnknowLoginType = "未知的登录方式"
-	RegisterSuccess = "注册成功"
+	LoginSuccess      = "登录成功"
+	UnknowLoginType   = "未知的登录方式"
+	RegisterSuccess   = "注册成功"
+	EmailLogin        = "邮箱登录"
+	UserPasswordLogin = "用户名密码登录"
+	UnKnownLogin      = "未知登录方式"
 )
 
 // Redis相关常量

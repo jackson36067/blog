@@ -2,6 +2,7 @@ package api
 
 import (
 	"blog/consts"
+	"blog/core"
 	"blog/enum"
 	"blog/global"
 	"blog/models"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -104,7 +106,51 @@ func (LoginApi) LoginView(c *gin.Context) {
 	if err != nil {
 		res.Fail(c, http.StatusInternalServerError, consts.GenJwtError)
 	}
-	// 生成用户信息结构体返回, TODO: 获取粉丝数, 关注数, 获取点赞数
-	var loginResponse = NewLoginResponse(user.ID, user.Username, user.Nickname, user.Avatar, token, user.Email, user.CodeAge, 28, 201, 1182)
+	// 统计粉丝、关注、点赞
+	var fansCount, followedCount, articleLikesCount int64
+	var articleIds []uint
+	db.Model(&models.UserFollow{}).Where("followed_id = ?", user.ID).Count(&fansCount)
+	db.Model(&models.UserFollow{}).Where("follower_id = ?", user.ID).Count(&followedCount)
+	db.Model(&models.Article{}).Where("user_id = ?", user.ID).Pluck("id", &articleIds)
+	db.Model(&models.ArticleLike{}).Where("article_id in (?)", articleIds).Count(&articleLikesCount)
+	// 生成用户信息结构体返回
+	var loginResponse = NewLoginResponse(
+		user.ID,
+		user.Username,
+		user.Nickname,
+		user.Avatar,
+		token,
+		user.Email,
+		user.CodeAge,
+		int(fansCount),
+		int(followedCount),
+		int(articleLikesCount),
+	)
 	res.Success(c, loginResponse, consts.LoginSuccess)
+	// 异步向用户登录表中存储用户登录数据
+	go func(userId uint, loginType enum.LoginType) {
+		var ua string
+		switch loginType {
+		case enum.EmailLoginType:
+			ua = consts.EmailLogin
+		case enum.PasswordLoginType:
+			ua = consts.UserPasswordLogin
+		default:
+			ua = consts.UnKnownLogin
+		}
+		ip := c.ClientIP()
+		core.InitIPDB()
+		addr, err := core.GetIpAddress(ip)
+		if err != nil {
+			logrus.Errorf("ip解析失败: %s", err.Error())
+			return
+		}
+		var userLogin = models.UserLogin{
+			UserID: userId,
+			IP:     ip,
+			Addr:   addr,
+			UA:     ua,
+		}
+		db.Create(&userLogin)
+	}(user.ID, loginRequest.LoginType)
 }
