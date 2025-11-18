@@ -10,24 +10,34 @@ import (
 	"blog/res"
 	"blog/service"
 	"blog/utils"
+	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserApi struct{}
 
 // GetUserDataView 获取用户信息
 func (UserApi) GetUserDataView(c *gin.Context) {
+	// 传递用户名为了获取他人的信息
 	username := c.Query("username")
+	userId, _ := c.Get(consts.UserId)
 	db := global.MysqlDB
 	var user models.User
 	// 获取用户
-	db.Preload("Articles").Where("username = ?", username).Take(&user)
+	if username != "" {
+		db.Model(&models.User{}).Preload("Articles").Where("username = ?", username).Find(&user)
+	} else {
+		db.Model(&models.User{}).Preload("Articles").Where("id = ?", userId).Find(&user)
+	}
 	if user.Username == "" {
 		res.Fail(c, 500, consts.UserNotFound)
+		return
 	}
 	// 封装用户信息
 	// 获取用户粉丝以及关注数量
@@ -40,15 +50,28 @@ func (UserApi) GetUserDataView(c *gin.Context) {
 	ip, err := core.GetIpAddress(c.ClientIP())
 	if err != nil {
 		res.Fail(c, 500, consts.IpParseError)
+		return
 	}
+	// 获取用户配置信息
+	var userConfig models.UserConfig
+	db.Where("user_id=?", user.ID).Find(&userConfig)
 	userDataResponse := response.UserDataResponse{
-		OriginArticle: len(user.Articles),
-		Fans:          len(followers),
-		Follow:        len(followed),
-		IP:            ip,
-		JoinTime:      user.CreatedAt.Format("2006-01-02 15:04:05"),
-		CodeAge:       user.CodeAge,
-		Avatar:        user.Avatar,
+		OriginArticle:               len(user.Articles),
+		Fans:                        len(followers),
+		Follow:                      len(followed),
+		IP:                          ip,
+		JoinTime:                    user.CreatedAt.Format("2006-01-02 15:04:05"),
+		CodeAge:                     user.CodeAge,
+		Username:                    user.Username,
+		Avatar:                      user.Avatar,
+		Sex:                         user.Sex,
+		Abstract:                    user.Abstract,
+		Birthday:                    user.Birthday.Format("2006-01-02"),
+		HobbyTags:                   userConfig.HobbyTags,
+		PublicFanList:               userConfig.PublicFanList,
+		PublicCollectList:           userConfig.PublicCollectList,
+		PublicFollowList:            userConfig.PublicFollowList,
+		SinceLastUpdateUsernameDays: int(time.Since(userConfig.UpdateUsernameDate).Hours() / 24),
 	}
 	res.Success(c, userDataResponse, "")
 }
@@ -83,7 +106,7 @@ func (UserApi) GetUserAchievementListView(c *gin.Context) {
 
 // GetUserLikeArticlesView 获取用户的点赞博文列表
 func (UserApi) GetUserLikeArticlesView(c *gin.Context) {
-	var userLikeRequestParams request.UserRequest
+	var userLikeRequestParams request.UserRequestParams
 	err := c.ShouldBindQuery(&userLikeRequestParams)
 	if err != nil {
 		res.Fail(c, 500, consts.RequestParamParseError)
@@ -141,7 +164,7 @@ func (UserApi) GetUserBrowseArticleHistoryView(c *gin.Context) {
 
 // GetUserFollowed 获取用户的关注列表
 func (UserApi) GetUserFollowed(c *gin.Context) {
-	var userRequestParams request.UserRequest
+	var userRequestParams request.UserRequestParams
 	err := c.ShouldBindQuery(&userRequestParams)
 	if err != nil {
 		res.Fail(c, 500, consts.RequestParamParseError)
@@ -194,7 +217,7 @@ func (UserApi) UpdateFollow(c *gin.Context) {
 	}
 	userIdAny, _ := c.Get(consts.UserId)
 	userId := userIdAny.(uint)
-	var userFollowRequestParam request.UserFollowRequest
+	var userFollowRequestParam request.UserFollowRequestParam
 	err = c.ShouldBindJSON(&userFollowRequestParam)
 	if err != nil {
 		res.Fail(c, 500, consts.RequestParamParseError)
@@ -218,7 +241,7 @@ func (UserApi) UpdateFollow(c *gin.Context) {
 
 // GetUserFollower 分页获取用户粉丝列表
 func (UserApi) GetUserFollower(c *gin.Context) {
-	var userRequestParams request.UserRequest
+	var userRequestParams request.UserRequestParams
 	err := c.ShouldBindQuery(&userRequestParams)
 	if err != nil {
 		res.Fail(c, 500, consts.RequestParamParseError)
@@ -267,7 +290,7 @@ func (UserApi) GetUserFollower(c *gin.Context) {
 
 // GetUserComments 分页获取用户发布/收到的评论
 func (UserApi) GetUserComments(c *gin.Context) {
-	var userCommentRequestParams request.UserCommentRequest
+	var userCommentRequestParams request.UserCommentRequestParams
 	err := c.ShouldBindQuery(&userCommentRequestParams)
 	if err != nil {
 		res.Fail(c, 500, consts.RequestParamParseError)
@@ -332,4 +355,112 @@ func (UserApi) GetUserComments(c *gin.Context) {
 		Data:          userCommentResponse,
 	}
 	res.Success(c, pagination, "")
+}
+
+// Upload 文件上传
+func (UserApi) Upload(c *gin.Context) {
+	// 获取上传文件
+	file, err := c.FormFile("file")
+	if err != nil {
+		res.Fail(c, 500, consts.FileParseError)
+		return
+	}
+	fileURL, err := utils.UploadImage(file)
+	if err != nil {
+		res.Fail(c, 500, consts.UploadFileError)
+		return
+	}
+	res.Success(c, fileURL, consts.UploadFileSuccess)
+}
+
+// UpdateUserInfo 更改用户信息
+func (UserApi) UpdateUserInfo(c *gin.Context) {
+	// 解析参数
+	var updateUserRequestParams request.UpdateUserRequestParams
+	err := c.ShouldBindJSON(&updateUserRequestParams)
+	if err != nil {
+		res.Fail(c, 500, consts.RequestParamParseError)
+		return
+	}
+	db := global.MysqlDB
+	// 存储更改信息
+	var updateUserInfoMap = make(map[string]any)
+	// 存储用户配置更改信息
+	var updateUserConfigMap = make(map[string]any)
+	tx := db.Begin()
+	if updateUserRequestParams.Username != "" {
+		// 判断是否满足更改用户名条件
+		var userConfig models.UserConfig
+		var user models.User
+		tx.Where("user_id = ?", updateUserRequestParams.UserID).Find(&userConfig)
+		tx.Where("username = ?", updateUserRequestParams.Username).Find(&user)
+		if user.ID > 0 {
+			res.Fail(c, 500, consts.UsernameExist)
+			tx.Rollback()
+			return
+		}
+		differ := time.Now().Sub(userConfig.UpdateUsernameDate)
+		// 判断上一次改名是否超过30天
+		if differ > 30*24*time.Hour {
+			updateUserInfoMap["username"] = updateUserRequestParams.Username
+			updateUserConfigMap["update_username_date"] = time.Now()
+		}
+	}
+	if updateUserRequestParams.Sex != nil {
+		updateUserInfoMap["sex"] = *updateUserRequestParams.Sex
+	}
+	if updateUserRequestParams.Avatar != "" {
+		updateUserInfoMap["avatar"] = updateUserRequestParams.Avatar
+	}
+	if updateUserRequestParams.Birthday != "" {
+		layout := "2006-01-02"
+		birthday, err := time.ParseInLocation(layout, updateUserRequestParams.Birthday, time.Local)
+		if err != nil {
+			res.Fail(c, 500, "生日格式错误")
+			return
+		}
+		updateUserInfoMap["birthday"] = birthday
+	}
+	if updateUserRequestParams.Abstract != "" {
+		updateUserInfoMap["abstract"] = updateUserRequestParams.Abstract
+	}
+	if updateUserRequestParams.Email != "" {
+		updateUserInfoMap["email"] = updateUserRequestParams.Email
+	}
+	if updateUserRequestParams.Password != "" {
+		hash, _ := bcrypt.GenerateFromPassword([]byte(updateUserRequestParams.Password), bcrypt.DefaultCost)
+		updateUserInfoMap["password"] = string(hash)
+	}
+	if updateUserRequestParams.PublicCollectList != nil {
+		updateUserConfigMap["public_collect_list"] = *updateUserRequestParams.PublicCollectList
+	}
+	if updateUserRequestParams.PublicFollowList != nil {
+		updateUserConfigMap["public_follow_list"] = *updateUserRequestParams.PublicFollowList
+	}
+	if updateUserRequestParams.PublicFanList != nil {
+		updateUserConfigMap["public_fan_list"] = *updateUserRequestParams.PublicFanList
+	}
+	if updateUserRequestParams.HobbyTags != nil {
+		marshal, _ := json.Marshal(updateUserRequestParams.HobbyTags)
+		updateUserConfigMap["hobby_tags"] = marshal
+	}
+	if len(updateUserInfoMap) > 0 {
+		if err := tx.Model(&models.User{}).
+			Where("id = ?", updateUserRequestParams.UserID).
+			Updates(updateUserInfoMap).Error; err != nil {
+			res.Fail(c, 500, consts.UpdateUserError)
+			tx.Rollback()
+			return
+		}
+	}
+	if len(updateUserConfigMap) > 0 {
+		if err := tx.Model(&models.UserConfig{}).
+			Where("user_id = ?", updateUserRequestParams.UserID).
+			Updates(updateUserConfigMap).Error; err != nil {
+			res.Fail(c, 500, consts.UpdateUserConfigError)
+			tx.Rollback()
+			return
+		}
+	}
+	tx.Commit()
 }

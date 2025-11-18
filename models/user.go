@@ -9,7 +9,7 @@ type User struct {
 	Nickname       string      `json:"nickname" gorm:"size:32;not null"`
 	Avatar         string      `json:"avatar" gorm:"size:255;"`
 	Abstract       string      `json:"abstract" gorm:"size:255;"` // 简介
-	Sex            int8        `json:"sex"`                       // 性别
+	Sex            int8        `json:"sex"`                       // 性别 0.male 1.female
 	Birthday       time.Time   `json:"birthday"`                  // 生日
 	RegisterSource int8        `json:"registerSource"`            // 注册来源
 	Password       string      `json:"password" gorm:"size:120;"`

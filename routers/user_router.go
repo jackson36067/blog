@@ -10,7 +10,8 @@ import (
 func UserRouter(router *gin.RouterGroup) {
 	app := api.App.UserApi
 	// 用户路由不需要登录的路由组
-	//public := router.Group("/user")
+	public := router.Group("/user")
+	public.POST("/upload", app.Upload)
 	// 用户路由需要登录的路由组
 	private := router.Group("/user")
 	private.Use(middleware.JwtVerify())
@@ -22,4 +23,5 @@ func UserRouter(router *gin.RouterGroup) {
 	private.POST("/follow/:id", app.UpdateFollow)
 	private.GET("/follower", app.GetUserFollower)
 	private.GET("/comment", app.GetUserComments)
+	private.PUT("/update", app.UpdateUserInfo)
 }

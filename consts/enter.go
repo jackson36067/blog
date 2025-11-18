@@ -61,6 +61,7 @@ const (
 // RequestParamParseError 用于请求参数获取失败提示
 const (
 	RequestParamParseError = "请求参数解析失败"
+	FileParseError         = "文件解析失败"
 )
 
 // 响应信息相关常量
@@ -82,4 +83,18 @@ const (
 // AffairCommitError 事务相关常量
 const (
 	AffairCommitError = "事务提交失败"
+)
+
+// ali_oos相关常量
+const (
+	ClientCreateError     = "客户端创建失败"
+	UploadFileStreamError = "上传文件流失败"
+	UploadFileSuccess     = "文件上传成功"
+	UploadFileError       = "文件上传出错"
+)
+
+// 更新错误相关常量
+const (
+	UpdateUserError       = "更新用户信息出错"
+	UpdateUserConfigError = "更新用户配置信息出错"
 )
