@@ -425,6 +425,12 @@ func (UserApi) UpdateUserInfo(c *gin.Context) {
 		updateUserInfoMap["abstract"] = updateUserRequestParams.Abstract
 	}
 	if updateUserRequestParams.Email != "" {
+		var user models.User
+		db.Where("email = ?", updateUserRequestParams.Email).Find(&user)
+		if user.ID > 0 {
+			res.Fail(c, 500, consts.EmailExist)
+			return
+		}
 		updateUserInfoMap["email"] = updateUserRequestParams.Email
 	}
 	if updateUserRequestParams.Password != "" {
