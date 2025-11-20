@@ -16,6 +16,9 @@ type UserDataResponse struct {
 	PublicFanList               bool     `json:"publicFanList"`               // 公开粉丝列表
 	PublicCollectList           bool     `json:"publicCollectList"`           // 公开收藏列表
 	PublicFollowList            bool     `json:"publicFollowList"`            // 公开关注列表
+	PublicLikeList              bool     `json:"publicLikeList"`              // 公开点赞列表
+	PublicBrowseHistory         bool     `json:"publicBrowseHistory"`         // 公开历史浏览记录
+	PublicPersonalList          bool     `json:"publicPersonalList"`          // 公开我的文章
 	SinceLastUpdateUsernameDays int      `json:"sinceLastUpdateUsernameDays"` // 距上一次更新用户名天数
 }
 

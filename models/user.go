@@ -23,12 +23,15 @@ type User struct {
 
 // UserConfig 用户配置表
 type UserConfig struct {
-	ID                 uint      `json:"id" gorm:"primary_key"`
-	UserID             uint      `json:"userId" gorm:"unique;not null"`
-	HobbyTags          []string  `json:"hobbyTags" gorm:"type:longtext;serializer:json"` // 兴趣标签
-	UpdateUsernameDate time.Time `json:"updateUsernameDate"`                             // 上次修改用户名时间
-	PublicCollectList  bool      `json:"publicCollectList"`                              // 公开我的收藏列表
-	PublicFollowList   bool      `json:"publicFollowList"`                               // 公开我的关注列表
-	PublicFanList      bool      `json:"publicFanList"`                                  // 公开我的粉丝列表
-	HomeStyleID        uint      `json:"homeStyleId"`                                    // 主页样式Id
+	ID                  uint      `json:"id" gorm:"primary_key"`
+	UserID              uint      `json:"userId" gorm:"unique;not null"`
+	HobbyTags           []string  `json:"hobbyTags" gorm:"type:longtext;serializer:json"` // 兴趣标签
+	UpdateUsernameDate  time.Time `json:"updateUsernameDate"`                             // 上次修改用户名时间
+	PublicCollectList   bool      `json:"publicCollectList"`                              // 公开我的收藏列表
+	PublicFollowList    bool      `json:"publicFollowList"`                               // 公开我的关注列表
+	PublicFanList       bool      `json:"publicFanList"`                                  // 公开我的粉丝列表
+	PublicLikeList      bool      `json:"publicLikeList"`                                 // 公开我的点赞列表
+	PublicBrowseHistory bool      `json:"publicBrowseHistory"`                            // 公开我的历史浏览
+	PublicPersonalList  bool      `json:"publicPersonalList"`                             // 公开我的文章列表
+	HomeStyleID         uint      `json:"homeStyleId"`                                    // 主页样式Id
 }

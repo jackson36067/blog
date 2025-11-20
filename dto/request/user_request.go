@@ -18,18 +18,21 @@ type UserCommentRequestParams struct {
 }
 
 type UpdateUserRequestParams struct {
-	UserID            uint     `json:"userId"`
-	Avatar            string   `json:"avatar"`
-	Username          string   `json:"username"`
-	Sex               *int8    `json:"sex"`
-	Abstract          string   `json:"abstract"`
-	Birthday          string   `json:"birthday"`
-	HobbyTags         []string `json:"hobbyTags"`
-	PublicFanList     *bool    `json:"publicFanList"`
-	PublicCollectList *bool    `json:"publicCollectList"`
-	PublicFollowList  *bool    `json:"publicFollowList"`
-	Email             string   `json:"email"`
-	EmailCode         string   `json:"emailCode"`
-	NewPwd            string   `json:"newPwd"`
-	OldPwd            string   `json:"oldPwd"`
+	UserID              uint     `json:"userId"`
+	Avatar              string   `json:"avatar"`
+	Username            string   `json:"username"`
+	Sex                 *int8    `json:"sex"`
+	Abstract            string   `json:"abstract"`
+	Birthday            string   `json:"birthday"`
+	HobbyTags           []string `json:"hobbyTags"`
+	PublicFanList       *bool    `json:"publicFanList"`
+	PublicCollectList   *bool    `json:"publicCollectList"`
+	PublicFollowList    *bool    `json:"publicFollowList"`
+	PublicLikeList      *bool    `json:"publicLikeList"`
+	PublicBrowseHistory *bool    `json:"publicBrowseHistory"`
+	PublicPersonalList  *bool    `json:"publicPersonalList"`
+	Email               string   `json:"email"`
+	EmailCode           string   `json:"emailCode"`
+	NewPwd              string   `json:"newPwd"`
+	OldPwd              string   `json:"oldPwd"`
 }

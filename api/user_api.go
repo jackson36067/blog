@@ -72,6 +72,9 @@ func (UserApi) GetUserDataView(c *gin.Context) {
 		PublicFanList:               userConfig.PublicFanList,
 		PublicCollectList:           userConfig.PublicCollectList,
 		PublicFollowList:            userConfig.PublicFollowList,
+		PublicLikeList:              userConfig.PublicLikeList,
+		PublicBrowseHistory:         userConfig.PublicBrowseHistory,
+		PublicPersonalList:          userConfig.PublicPersonalList,
 		SinceLastUpdateUsernameDays: int(time.Since(userConfig.UpdateUsernameDate).Hours() / 24),
 	}
 	res.Success(c, userDataResponse, "")
@@ -460,6 +463,15 @@ func (UserApi) UpdateUserInfo(c *gin.Context) {
 	}
 	if updateUserRequestParams.PublicFanList != nil {
 		updateUserConfigMap["public_fan_list"] = *updateUserRequestParams.PublicFanList
+	}
+	if updateUserRequestParams.PublicLikeList != nil {
+		updateUserConfigMap["public_like_list"] = *updateUserRequestParams.PublicLikeList
+	}
+	if updateUserRequestParams.PublicBrowseHistory != nil {
+		updateUserConfigMap["public_browse_history"] = *updateUserRequestParams.PublicBrowseHistory
+	}
+	if updateUserRequestParams.PublicPersonalList != nil {
+		updateUserConfigMap["public_personal_list"] = *updateUserRequestParams.PublicPersonalList
 	}
 	if updateUserRequestParams.HobbyTags != nil {
 		marshal, _ := json.Marshal(updateUserRequestParams.HobbyTags)
