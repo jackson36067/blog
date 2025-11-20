@@ -18,6 +18,8 @@ type ArticleResponse struct {
 	CommentCount  int      `json:"commentCount"`
 	CollectCount  int      `json:"collectCount"`
 	PublicComment bool     `json:"publicComment"`
+	Username      string   `json:"username"`
+	Avatar        string   `json:"avatar"`
 }
 
 type ArticleHotTagsAndRandCategoryResponse struct {

@@ -93,7 +93,11 @@ func (ArticleApi) GetHomeArticleView(c *gin.Context) {
 	tx.Count(&total)
 	// 分页查询
 	var articles []models.Article
-	tx.Debug().Order("created_at desc").Offset(offset).Limit(pageSize).Find(&articles)
+	tx.Debug().
+		Order("created_at desc").
+		Offset(offset).
+		Limit(pageSize).
+		Find(&articles)
 	totalPages := int(math.Ceil(float64(total) / float64(pageSize)))
 	homeArticleResponse := service.ArticlesToArticleResponse(articles)
 	pagination := res.NewPagination(page, pageSize, total, totalPages, homeArticleResponse)
@@ -153,7 +157,7 @@ func (ArticleApi) GetUserArticlePaginationView(c *gin.Context) {
 	db := global.MysqlDB
 	// 根据用户名获取用户id
 	db.Model(&models.User{}).Where("username = ?", myArticleQueryParam.Username).Pluck("id", &userId)
-	tx := db.Model(&models.Article{})
+	tx := db.Model(&models.Article{}).Preload("User")
 	tx = tx.Where("user_id = ?", userId)
 	if myArticleQueryParam.Visibility == enum.Private {
 		tx = tx.Where("visibility = ?", enum.Private)

@@ -96,6 +96,8 @@ func ArticlesToArticleResponse(articles []models.Article) []response.ArticleResp
 			CommentCount:  article.CommentCount,
 			CollectCount:  article.CollectCount,
 			PublicComment: article.PublicComment,
+			Username:      article.User.Username,
+			Avatar:        article.User.Avatar,
 		}
 	})
 }
@@ -142,6 +144,8 @@ func GetArticleGroupedByTime(browseArticles []models.UserArticleBrowseHistory) [
 			CommentCount:  article.CommentCount,
 			CollectCount:  article.CollectCount,
 			PublicComment: article.PublicComment,
+			Username:      a.User.Username,
+			Avatar:        a.User.Avatar,
 		}
 		// 首次遇到该分组时记录顺序
 		if _, ok := groupMap[groupKey]; !ok {

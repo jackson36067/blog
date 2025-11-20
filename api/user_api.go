@@ -132,6 +132,7 @@ func (UserApi) GetUserLikeArticlesView(c *gin.Context) {
 	pageSize := userLikeRequestParams.PageSize
 	var total int64
 	db.Model(&models.Article{}).
+		Preload("User").
 		Where("id in (?)", userLikeArticleIds).
 		Count(&total).
 		Order(fmt.Sprintf("FIELD(id, %s)", strings.Trim(strings.Join(strings.Fields(fmt.Sprint(userLikeArticleIds)), ","), "[]"))).
@@ -159,6 +160,7 @@ func (UserApi) GetUserBrowseArticleHistoryView(c *gin.Context) {
 	var userBrowseArticles []models.UserArticleBrowseHistory
 	db.Model(&models.UserArticleBrowseHistory{}).
 		Preload("Article").
+		Preload("User").
 		Where("user_id = ?", userId).
 		Order("created_at desc").
 		Find(&userBrowseArticles)
