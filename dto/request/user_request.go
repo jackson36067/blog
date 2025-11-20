@@ -29,5 +29,7 @@ type UpdateUserRequestParams struct {
 	PublicCollectList *bool    `json:"publicCollectList"`
 	PublicFollowList  *bool    `json:"publicFollowList"`
 	Email             string   `json:"email"`
-	Password          string   `json:"password"`
+	EmailCode         string   `json:"emailCode"`
+	NewPwd            string   `json:"newPwd"`
+	OldPwd            string   `json:"oldPwd"`
 }

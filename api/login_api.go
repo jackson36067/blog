@@ -72,10 +72,7 @@ func (LoginApi) LoginView(c *gin.Context) {
 			return
 		}
 		// 校验用户名密码
-		// 获取加密密码
-		hash, _ := bcrypt.GenerateFromPassword([]byte(loginRequest.Password), bcrypt.DefaultCost)
-		// 判断密码是否正确
-		err := bcrypt.CompareHashAndPassword(hash, []byte(loginRequest.Password))
+		err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(loginRequest.Password))
 		if err != nil {
 			res.Fail(c, http.StatusBadRequest, consts.PwdError)
 			return

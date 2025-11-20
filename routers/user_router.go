@@ -24,4 +24,5 @@ func UserRouter(router *gin.RouterGroup) {
 	private.GET("/follower", app.GetUserFollower)
 	private.GET("/comment", app.GetUserComments)
 	private.PUT("/update", app.UpdateUserInfo)
+	private.GET("/login/log", app.GetUserLoginLogPagination)
 }

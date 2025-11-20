@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"net/http"
 	"strings"
 	"time"
 
@@ -431,10 +432,24 @@ func (UserApi) UpdateUserInfo(c *gin.Context) {
 			res.Fail(c, 500, consts.EmailExist)
 			return
 		}
+		// 校验验证码是否正确
+		value, err := global.RedisDB.Get(global.Ctx, consts.EmailCodeKeyPrefix+updateUserRequestParams.Email).Result()
+		if err != nil || value != updateUserRequestParams.EmailCode {
+			res.Fail(c, http.StatusBadRequest, consts.CodeError)
+			return
+		}
 		updateUserInfoMap["email"] = updateUserRequestParams.Email
 	}
-	if updateUserRequestParams.Password != "" {
-		hash, _ := bcrypt.GenerateFromPassword([]byte(updateUserRequestParams.Password), bcrypt.DefaultCost)
+	if updateUserRequestParams.NewPwd != "" {
+		// 校验旧密码是否正确
+		var oldPwd string
+		db.Model(&models.User{}).Where("id = ?", updateUserRequestParams.UserID).Pluck("password", &oldPwd)
+		err := bcrypt.CompareHashAndPassword([]byte(oldPwd), []byte(updateUserRequestParams.OldPwd))
+		if err != nil {
+			res.Fail(c, 500, consts.PwdError)
+			return
+		}
+		hash, _ := bcrypt.GenerateFromPassword([]byte(updateUserRequestParams.NewPwd), bcrypt.DefaultCost)
 		updateUserInfoMap["password"] = string(hash)
 	}
 	if updateUserRequestParams.PublicCollectList != nil {
@@ -469,4 +484,48 @@ func (UserApi) UpdateUserInfo(c *gin.Context) {
 		}
 	}
 	tx.Commit()
+}
+
+// GetUserLoginLogPagination 分页获取用户登录日志信息
+func (UserApi) GetUserLoginLogPagination(c *gin.Context) {
+	userId, _ := c.Get(consts.UserId)
+	if userId == 0 {
+		res.Fail(c, 500, consts.UserNotFound)
+		return
+	}
+	var userRequestParam request.UserRequestParams
+	err := c.ShouldBindQuery(&userRequestParam)
+	if err != nil {
+		res.Fail(c, 500, consts.RequestParamParseError)
+		return
+	}
+	db := global.MysqlDB
+	var userLogins []models.UserLogin
+	page := userRequestParam.Page
+	pageSize := userRequestParam.PageSize
+	var total int64
+	db.Model(&models.UserLogin{}).
+		Where("user_id = ?", userId).
+		Order("created_at desc").
+		Count(&total).
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
+		Find(&userLogins)
+	userLoginLogsResponse := utils.MapSlice(userLogins, func(login models.UserLogin) response.UserLoginLogResponse {
+		return response.UserLoginLogResponse{
+			ID:        login.ID,
+			Ip:        login.IP,
+			Addr:      login.Addr,
+			CreatedAt: login.CreatedAt.Format("2006-01-02 15:04:05"),
+		}
+	})
+	totalPage := int(math.Ceil(float64(total) / float64(pageSize)))
+	pagination := res.Pagination{
+		Page:          page,
+		PageSize:      pageSize,
+		TotalElements: total,
+		TotalPages:    totalPage,
+		Data:          userLoginLogsResponse,
+	}
+	res.Success(c, pagination, "")
 }

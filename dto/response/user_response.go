@@ -40,3 +40,10 @@ type UserCommentResponse struct {
 	Title     string `json:"title"`     // 评论文章标题
 	CreatedAt string `json:"createdAt"` // 评论时间
 }
+
+type UserLoginLogResponse struct {
+	ID        uint   `json:"id"`
+	Ip        string `json:"ip"`
+	Addr      string `json:"addr"`
+	CreatedAt string `json:"createdAt"`
+}
