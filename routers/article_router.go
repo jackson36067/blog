@@ -14,13 +14,15 @@ func ArticleRouter(router *gin.RouterGroup) {
 	public.GET("/info", app.GetHomeArticleView)
 	// 获取文章的分类以及标签
 	public.GET("/meta", app.GetArticleHotTagsAndRandCategoryView)
-	public.GET("/category/list", app.GetArticleCategoryList)
-	public.GET("/tag/list", app.GetArticleTagList)
+	public.GET("/category/list", app.GetArticleCategoryListView)
+	public.GET("/tag/list", app.GetArticleTagListView)
+	public.GET("/detail/:id", app.GetArticleDetailView)
 	// 文章路由需要登录的路由组
 	private := router.Group("/article")
 	private.Use(middleware.JwtVerify())
 	private.GET("/top", app.GetUserTopArticleListView)
 	private.GET("/my", app.GetUserArticlePaginationView)
-	private.GET("/statistic", app.GetUserArticleCreateProcess)
+	private.GET("/statistic", app.GetUserArticleCreateProcessView)
 	private.DELETE("/remove/browse", app.ClearUserBrowseArticleHistoryView)
+	private.POST("/like/:id", app.LikeArticleView)
 }

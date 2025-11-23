@@ -168,8 +168,8 @@ func (UserApi) GetUserBrowseArticleHistoryView(c *gin.Context) {
 	res.Success(c, browseArticleGroup, "")
 }
 
-// GetUserFollowed 获取用户的关注列表
-func (UserApi) GetUserFollowed(c *gin.Context) {
+// GetUserFollowedView 获取用户的关注列表
+func (UserApi) GetUserFollowedView(c *gin.Context) {
 	var userRequestParams request.UserRequestParams
 	err := c.ShouldBindQuery(&userRequestParams)
 	if err != nil {
@@ -214,7 +214,7 @@ func (UserApi) GetUserFollowed(c *gin.Context) {
 	res.Success(c, pagination, "")
 }
 
-func (UserApi) UpdateFollow(c *gin.Context) {
+func (UserApi) UpdateFollowView(c *gin.Context) {
 	// 获取请求参数
 	operateUserIdStr := c.Param("id")
 	operateUserId, err := utils.StringToUint(operateUserIdStr)
@@ -245,8 +245,8 @@ func (UserApi) UpdateFollow(c *gin.Context) {
 	}
 }
 
-// GetUserFollower 分页获取用户粉丝列表
-func (UserApi) GetUserFollower(c *gin.Context) {
+// GetUserFollowerView 分页获取用户粉丝列表
+func (UserApi) GetUserFollowerView(c *gin.Context) {
 	var userRequestParams request.UserRequestParams
 	err := c.ShouldBindQuery(&userRequestParams)
 	if err != nil {
@@ -294,8 +294,8 @@ func (UserApi) GetUserFollower(c *gin.Context) {
 	res.Success(c, pagination, "")
 }
 
-// GetUserComments 分页获取用户发布/收到的评论
-func (UserApi) GetUserComments(c *gin.Context) {
+// GetUserCommentsView 分页获取用户发布/收到的评论
+func (UserApi) GetUserCommentsView(c *gin.Context) {
 	var userCommentRequestParams request.UserCommentRequestParams
 	err := c.ShouldBindQuery(&userCommentRequestParams)
 	if err != nil {
@@ -379,8 +379,8 @@ func (UserApi) Upload(c *gin.Context) {
 	res.Success(c, fileURL, consts.UploadFileSuccess)
 }
 
-// UpdateUserInfo 更改用户信息
-func (UserApi) UpdateUserInfo(c *gin.Context) {
+// UpdateUserInfoView 更改用户信息
+func (UserApi) UpdateUserInfoView(c *gin.Context) {
 	// 解析参数
 	var updateUserRequestParams request.UpdateUserRequestParams
 	err := c.ShouldBindJSON(&updateUserRequestParams)
@@ -500,8 +500,8 @@ func (UserApi) UpdateUserInfo(c *gin.Context) {
 	tx.Commit()
 }
 
-// GetUserLoginLogPagination 分页获取用户登录日志信息
-func (UserApi) GetUserLoginLogPagination(c *gin.Context) {
+// GetUserLoginLogPaginationView 分页获取用户登录日志信息
+func (UserApi) GetUserLoginLogPaginationView(c *gin.Context) {
 	userId, _ := c.Get(consts.UserId)
 	if userId == 0 {
 		res.Fail(c, 500, consts.UserNotFound)

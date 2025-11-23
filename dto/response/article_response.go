@@ -18,8 +18,12 @@ type ArticleResponse struct {
 	CommentCount  int      `json:"commentCount"`
 	CollectCount  int      `json:"collectCount"`
 	PublicComment bool     `json:"publicComment"`
+	UserID        uint     `json:"userId"`
 	Username      string   `json:"username"`
 	Avatar        string   `json:"avatar"`
+	IsLike        bool     `json:"isLike"`    // 当前用户是否点赞文章
+	IsCollect     bool     `json:"isCollect"` // 当前用户是否收藏该文章
+	IsFollow      bool     `json:"isFollow"`  // 当前用户是否关注作者
 }
 
 type ArticleHotTagsAndRandCategoryResponse struct {

@@ -111,8 +111,8 @@ func (FavoriteApi) GetFavoriteArticleListView(c *gin.Context) {
 	res.Success(c, favoriteArticleResponse, "")
 }
 
-// UpdateFavorite 更新收藏夹基本信息
-func (FavoriteApi) UpdateFavorite(c *gin.Context) {
+// UpdateFavoriteView 更新收藏夹基本信息
+func (FavoriteApi) UpdateFavoriteView(c *gin.Context) {
 	favoriteId := c.Param("id")
 	userId, _ := c.Get(consts.UserId)
 	// 获取请求参数
@@ -219,8 +219,8 @@ func (FavoriteApi) MoveFavoriteArticleView(c *gin.Context) {
 	res.Success(c, nil, consts.MoveSuccess)
 }
 
-// RemoveFavoriteArticle 移除收藏夹博文
-func (FavoriteApi) RemoveFavoriteArticle(c *gin.Context) {
+// RemoveFavoriteArticleView 移除收藏夹博文
+func (FavoriteApi) RemoveFavoriteArticleView(c *gin.Context) {
 	favoriteId := c.Param("id")
 	var removeFavoriteArticleRequestParams request.RemoveFavoriteArticleRequestParams
 	if err := c.ShouldBindJSON(&removeFavoriteArticleRequestParams); err != nil {

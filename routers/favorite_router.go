@@ -17,8 +17,8 @@ func FavoriteRouter(router *gin.RouterGroup) {
 	private.Use(middleware.JwtVerify())
 	private.GET("/list", app.GetUserFavoriteListView)
 	private.POST("/new", app.NewFavoriteView)
-	private.PUT("/update/:id", app.UpdateFavorite)
+	private.PUT("/update/:id", app.UpdateFavoriteView)
 	private.PUT("/move", app.MoveFavoriteArticleView)
-	private.DELETE("remove/:id", app.RemoveFavoriteArticle)
+	private.DELETE("remove/:id", app.RemoveFavoriteArticleView)
 	private.DELETE("/delete/:id", app.DeleteFavorite)
 }

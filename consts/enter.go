@@ -78,6 +78,8 @@ const (
 	RemoveSuccess                    = "移除成功"
 	DeleteFavoriteError              = "删除收藏夹失败"
 	DeleteFavoriteSuccess            = "删除收藏夹成功"
+	ArticleNotFound                  = "文章不存在"
+	CreateUserBrowseHistoryError     = "新增用户浏览记录错误"
 )
 
 // AffairCommitError 事务相关常量
@@ -95,6 +97,7 @@ const (
 
 // 更新错误相关常量
 const (
-	UpdateUserError       = "更新用户信息出错"
-	UpdateUserConfigError = "更新用户配置信息出错"
+	UpdateUserError               = "更新用户信息出错"
+	UpdateUserConfigError         = "更新用户配置信息出错"
+	UpdateArticleBrowseCountError = "更新文章浏览数量出错"
 )

@@ -13,9 +13,11 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type ArticleApi struct {
@@ -180,8 +182,8 @@ func (ArticleApi) GetUserArticlePaginationView(c *gin.Context) {
 	res.Success(c, pagination, "")
 }
 
-// GetUserArticleCreateProcess 获取文章创作历程
-func (ArticleApi) GetUserArticleCreateProcess(c *gin.Context) {
+// GetUserArticleCreateProcessView 获取文章创作历程
+func (ArticleApi) GetUserArticleCreateProcessView(c *gin.Context) {
 	userId, _ := c.Get(consts.UserId)
 	db := global.MysqlDB
 	var articles []response.ArticleStatistic
@@ -201,18 +203,114 @@ func (ArticleApi) ClearUserBrowseArticleHistoryView(c *gin.Context) {
 	res.Success(c, nil, consts.ClearUserBrowseHistorySuccess)
 }
 
-// GetArticleCategoryList 分页获取文章分类列表
-func (ArticleApi) GetArticleCategoryList(c *gin.Context) {
+// GetArticleCategoryListView 分页获取文章分类列表
+func (ArticleApi) GetArticleCategoryListView(c *gin.Context) {
 	db := global.MysqlDB
 	var categoryList []models.ArticleCategory
 	db.Find(&categoryList)
 	res.Success(c, categoryList, "")
 }
 
-// GetArticleTagList 获取文章标签列表
-func (ArticleApi) GetArticleTagList(c *gin.Context) {
+// GetArticleTagListView 获取文章标签列表
+func (ArticleApi) GetArticleTagListView(c *gin.Context) {
 	db := global.MysqlDB
 	var articleTagList []models.ArticleTag
 	db.Find(&articleTagList)
 	res.Success(c, articleTagList, "")
+}
+
+// GetArticleDetailView 获取文章详情信息
+func (ArticleApi) GetArticleDetailView(c *gin.Context) {
+	articleId := c.Param("id")
+	userIdStr := c.Query(consts.UserId)
+	db := global.MysqlDB
+	var article models.Article
+	db.Model(&models.Article{}).
+		Preload("User").
+		Where("id = ?", articleId).
+		First(&article)
+	if article.ID == 0 {
+		res.Fail(c, 500, consts.ArticleNotFound)
+		return
+	}
+	var articleResponse response.ArticleResponse
+	// 访问的是无登录状态下
+	if userIdStr == "" {
+		articleResponse = response.ArticleResponse{
+			Id:            article.ID,
+			Title:         article.Title,
+			Abstract:      article.Abstract,
+			Content:       article.Content,
+			Tags:          article.TagList,
+			CreatedAt:     article.CreatedAt.Format("2006-01-02 15:04:05"),
+			BrowseCount:   article.BrowseCount,
+			LikeCount:     article.LikeCount,
+			CollectCount:  article.CollectCount,
+			CommentCount:  article.CommentCount,
+			PublicComment: article.PublicComment,
+			UserID:        article.UserID,
+			Username:      article.User.Username,
+			Avatar:        article.User.Avatar,
+			IsLike:        false,
+			IsCollect:     false,
+			IsFollow:      false,
+		}
+	} else {
+		userId, _ := strconv.ParseUint(userIdStr, 10, 64)
+		// 判断登录用户是否点赞,收藏该文章
+		var isLike bool
+		db.Model(&models.ArticleLike{}).
+			Select("1").
+			Where("user_id = ? AND article_id = ?", userId, articleId).
+			Limit(1).
+			Find(&isLike)
+		var isCollect bool
+		db.Model(&models.UserArticleCollect{}).
+			Select("1").
+			Where("user_id = ? AND article_id = ?", userId, articleId).
+			Limit(1).
+			Find(&isCollect)
+		var isFollow bool
+		db.Model(&models.UserFollow{}).
+			Select("1").
+			Where("follower_id = ? AND followed_id = ?", userId, article.UserID).
+			Limit(1).
+			Find(&isFollow)
+		articleResponse = response.ArticleResponse{
+			Id:            article.ID,
+			Title:         article.Title,
+			Abstract:      article.Abstract,
+			Content:       article.Content,
+			Tags:          article.TagList,
+			CreatedAt:     article.CreatedAt.Format("2006-01-02 15:04:05"),
+			BrowseCount:   article.BrowseCount,
+			LikeCount:     article.LikeCount,
+			CollectCount:  article.CollectCount,
+			CommentCount:  article.CommentCount,
+			PublicComment: article.PublicComment,
+			UserID:        article.UserID,
+			Username:      article.User.Username,
+			Avatar:        article.User.Avatar,
+			IsLike:        isLike,
+			IsCollect:     isCollect,
+			IsFollow:      isFollow,
+		}
+		// 保存用户浏览文章历史记录
+		go func(articleId uint, userId uint) {
+			userArticleBrowseHistory := models.UserArticleBrowseHistory{
+				UserID:    userId,
+				ArticleID: articleId,
+			}
+			db.Create(&userArticleBrowseHistory)
+		}(article.ID, uint(userId))
+	}
+	res.Success(c, articleResponse, "")
+	// 异步添加用户浏览文章记录以及文章访问量
+	go func(articleId uint) {
+		db.Model(&models.Article{}).Where("id = ?", articleId).Update("browse_count = ?", gorm.Expr("browse_count + 1"))
+	}(article.ID)
+}
+
+// LikeArticleView 点赞文章
+func (ArticleApi) LikeArticleView(c *gin.Context) {
 }

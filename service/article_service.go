@@ -84,20 +84,18 @@ func GroupArticlesByYearAndMonth(articleList []response.ArticleStatistic) []resp
 func ArticlesToArticleResponse(articles []models.Article) []response.ArticleResponse {
 	return utils.MapSlice(articles, func(article models.Article) response.ArticleResponse {
 		return response.ArticleResponse{
-			Id:            article.ID,
-			Title:         article.Title,
-			Abstract:      article.Abstract,
-			Content:       article.Content,
-			Coverage:      article.Coverage,
-			Tags:          article.TagList,
-			CreatedAt:     article.CreatedAt.Format("2006-01-02 15:04:05"),
-			BrowseCount:   article.BrowseCount,
-			LikeCount:     article.LikeCount,
-			CommentCount:  article.CommentCount,
-			CollectCount:  article.CollectCount,
-			PublicComment: article.PublicComment,
-			Username:      article.User.Username,
-			Avatar:        article.User.Avatar,
+			Id:           article.ID,
+			Title:        article.Title,
+			Abstract:     article.Abstract,
+			Coverage:     article.Coverage,
+			Tags:         article.TagList,
+			CreatedAt:    article.CreatedAt.Format("2006-01-02 15:04:05"),
+			BrowseCount:  article.BrowseCount,
+			LikeCount:    article.LikeCount,
+			CommentCount: article.CommentCount,
+			CollectCount: article.CollectCount,
+			Username:     article.User.Username,
+			Avatar:       article.User.Avatar,
 		}
 	})
 }
@@ -144,6 +142,7 @@ func GetArticleGroupedByTime(browseArticles []models.UserArticleBrowseHistory) [
 			CommentCount:  article.CommentCount,
 			CollectCount:  article.CollectCount,
 			PublicComment: article.PublicComment,
+			UserID:        article.UserID,
 			Username:      a.User.Username,
 			Avatar:        a.User.Avatar,
 		}
