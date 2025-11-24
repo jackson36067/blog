@@ -13,4 +13,7 @@ type Comment struct {
 	SubCommentList []*Comment `json:"-" gorm:"foreignKey:ParentID"`
 	RootParentID   *uint      `json:"rootParentId"` // 根评论ID
 	LikeCount      uint       `json:"likeCount"`    // 评论点赞数
+	// 新增字段：被回复的用户 ID
+	ReplyToUserID *uint `json:"replyToUserId"`
+	ReplyToUser   User  `gorm:"foreignKey:ReplyToUserID"`
 }

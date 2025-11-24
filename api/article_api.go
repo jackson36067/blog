@@ -234,6 +234,21 @@ func (ArticleApi) GetArticleDetailView(c *gin.Context) {
 		res.Fail(c, 500, consts.ArticleNotFound)
 		return
 	}
+	// 获取文章根评论(10条)以及子评论
+	var rootComments []models.Comment
+	var articleTotalRootComment int64
+	db.Preload("User").
+		Where("article_id = ? AND root_parent_id IS NULL", articleId).
+		Order("like_count DESC, created_at DESC").
+		Count(&articleTotalRootComment).
+		Limit(10).
+		Find(&rootComments)
+	// 抽取 rootIDs
+	rootIDs := make([]uint, 0, len(rootComments))
+	for _, r := range rootComments {
+		rootIDs = append(rootIDs, r.ID)
+	}
+	commentResponses := service.GetArticleComments(db, rootIDs, rootComments)
 	var articleResponse response.ArticleResponse
 	// 访问的是无登录状态下
 	if token == "" {
@@ -255,6 +270,8 @@ func (ArticleApi) GetArticleDetailView(c *gin.Context) {
 			IsLike:        false,
 			IsCollect:     false,
 			IsFollow:      false,
+			Comments:      commentResponses,
+			TotalComment:  uint(articleTotalRootComment),
 		}
 	} else {
 		token = strings.Split(c.Request.Header.Get("Authorization"), " ")[1]
@@ -297,6 +314,8 @@ func (ArticleApi) GetArticleDetailView(c *gin.Context) {
 			IsLike:        isLike,
 			IsCollect:     isCollect,
 			IsFollow:      isFollow,
+			Comments:      commentResponses,
+			TotalComment:  uint(articleTotalRootComment),
 		}
 		// 保存用户浏览文章历史记录
 		go func(articleId uint, userId uint) {

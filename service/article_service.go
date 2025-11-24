@@ -6,6 +6,8 @@ import (
 	"blog/utils"
 	"sort"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // GroupArticlesByYearAndMonth 按年份、月份统计文章数量
@@ -160,6 +162,67 @@ func GetArticleGroupedByTime(browseArticles []models.UserArticleBrowseHistory) [
 		result = append(result, response.ArticleGroup{
 			GroupTime: groupKey,
 			Articles:  groupMap[groupKey],
+		})
+	}
+
+	return result
+}
+
+// GetArticleComments 获取文章评论
+func GetArticleComments(db *gorm.DB, rootIDs []uint, rootComments []models.Comment) []*response.CommentResponse {
+
+	// 如果根评论为空则直接返回
+	if len(rootComments) == 0 {
+		return []*response.CommentResponse{}
+	}
+
+	// 1. 一次查询所有子评论
+	var subComments []models.Comment
+	db.Preload("User").
+		Preload("ReplyToUser").
+		Where("root_parent_id IN ?", rootIDs).
+		Order("like_count DESC, created_at ASC").
+		Find(&subComments)
+
+	// 2. 按 root_parent_id 分组
+	subMap := make(map[uint][]models.Comment)
+	for _, sub := range subComments {
+		pid := *sub.RootParentID
+		subMap[pid] = append(subMap[pid], sub)
+	}
+
+	// 3. 拼装结果
+	var result []*response.CommentResponse
+	for _, root := range rootComments {
+
+		// 子评论 response
+		subResp := utils.MapSlice(subMap[root.ID], func(sub models.Comment) *response.CommentResponse {
+			return &response.CommentResponse{
+				ID:              sub.ID,
+				UserID:          sub.UserID,
+				Username:        sub.User.Username,
+				Avatar:          sub.User.Avatar,
+				Content:         sub.Content,
+				LikeCount:       sub.LikeCount,
+				RootCommentID:   sub.RootParentID,
+				SubComment:      []*response.CommentResponse{},
+				CreateTime:      sub.CreatedAt.Format("2006.01.02"),
+				ReplyToUsername: sub.ReplyToUser.Username,
+			}
+		})
+
+		// 根评论 response
+		result = append(result, &response.CommentResponse{
+			ID:              root.ID,
+			UserID:          root.UserID,
+			Username:        root.User.Username,
+			Avatar:          root.User.Avatar,
+			Content:         root.Content,
+			LikeCount:       root.LikeCount,
+			RootCommentID:   root.RootParentID,
+			SubComment:      subResp,
+			CreateTime:      root.CreatedAt.Format("2006.01.02"),
+			ReplyToUsername: "",
 		})
 	}
 

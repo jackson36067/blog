@@ -6,24 +6,26 @@ import (
 )
 
 type ArticleResponse struct {
-	Id            uint     `json:"id"` // 文章id
-	Title         string   `json:"title"`
-	Abstract      string   `json:"abstract"`
-	Content       string   `json:"content"`
-	Coverage      string   `json:"coverage"`
-	Tags          []string `json:"tags"`
-	CreatedAt     string   `json:"createdAt"`
-	BrowseCount   int      `json:"browseCount"`
-	LikeCount     int      `json:"likeCount"`
-	CommentCount  int      `json:"commentCount"`
-	CollectCount  int      `json:"collectCount"`
-	PublicComment bool     `json:"publicComment"`
-	UserID        uint     `json:"userId"`
-	Username      string   `json:"username"`
-	Avatar        string   `json:"avatar"`
-	IsLike        bool     `json:"isLike"`    // 当前用户是否点赞文章
-	IsCollect     bool     `json:"isCollect"` // 当前用户是否收藏该文章
-	IsFollow      bool     `json:"isFollow"`  // 当前用户是否关注作者
+	Id            uint               `json:"id"` // 文章id
+	Title         string             `json:"title"`
+	Abstract      string             `json:"abstract"`
+	Content       string             `json:"content"`
+	Coverage      string             `json:"coverage"`
+	Tags          []string           `json:"tags"`
+	CreatedAt     string             `json:"createdAt"`
+	BrowseCount   int                `json:"browseCount"`
+	LikeCount     int                `json:"likeCount"`
+	CommentCount  int                `json:"commentCount"`
+	CollectCount  int                `json:"collectCount"`
+	PublicComment bool               `json:"publicComment"`
+	UserID        uint               `json:"userId"`
+	Username      string             `json:"username"`
+	Avatar        string             `json:"avatar"`
+	IsLike        bool               `json:"isLike"`    // 当前用户是否点赞文章
+	IsCollect     bool               `json:"isCollect"` // 当前用户是否收藏该文章
+	IsFollow      bool               `json:"isFollow"`  // 当前用户是否关注作者
+	Comments      []*CommentResponse `json:"comments"`
+	TotalComment  uint               `json:"totalComment"` // 文章总共根目录评论数
 }
 
 type ArticleHotTagsAndRandCategoryResponse struct {
