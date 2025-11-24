@@ -24,3 +24,11 @@ type MyArticleQueryParams struct {
 	StartTime  time.Time              `form:"startTime"`
 	EndTime    time.Time              `form:"endTime"`
 }
+
+type LikeArticleRequestParams struct {
+	IsLike bool `json:"isLike"`
+}
+
+type CollectArticleRequestParams struct {
+	FavoriteId uint `json:"favoriteId"`
+}

@@ -10,6 +10,7 @@ import (
 	"blog/res"
 	"blog/service"
 	"blog/utils"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -222,7 +223,7 @@ func (ArticleApi) GetArticleTagListView(c *gin.Context) {
 // GetArticleDetailView 获取文章详情信息
 func (ArticleApi) GetArticleDetailView(c *gin.Context) {
 	articleId := c.Param("id")
-	userIdStr := c.Query(consts.UserId)
+	token := c.Request.Header.Get("Authorization")
 	db := global.MysqlDB
 	var article models.Article
 	db.Model(&models.Article{}).
@@ -235,7 +236,7 @@ func (ArticleApi) GetArticleDetailView(c *gin.Context) {
 	}
 	var articleResponse response.ArticleResponse
 	// 访问的是无登录状态下
-	if userIdStr == "" {
+	if token == "" {
 		articleResponse = response.ArticleResponse{
 			Id:            article.ID,
 			Title:         article.Title,
@@ -256,7 +257,9 @@ func (ArticleApi) GetArticleDetailView(c *gin.Context) {
 			IsFollow:      false,
 		}
 	} else {
-		userId, _ := strconv.ParseUint(userIdStr, 10, 64)
+		token = strings.Split(c.Request.Header.Get("Authorization"), " ")[1]
+		claims, _ := utils.ParseToken(token)
+		userId := claims.UserID
 		// 判断登录用户是否点赞,收藏该文章
 		var isLike bool
 		db.Model(&models.ArticleLike{}).
@@ -302,15 +305,110 @@ func (ArticleApi) GetArticleDetailView(c *gin.Context) {
 				ArticleID: articleId,
 			}
 			db.Create(&userArticleBrowseHistory)
-		}(article.ID, uint(userId))
+		}(article.ID, userId)
 	}
 	res.Success(c, articleResponse, "")
 	// 异步添加用户浏览文章记录以及文章访问量
 	go func(articleId uint) {
-		db.Model(&models.Article{}).Where("id = ?", articleId).Update("browse_count = ?", gorm.Expr("browse_count + 1"))
+		db.Model(&models.Article{}).Where("id = ?", articleId).Update("browse_count", gorm.Expr("browse_count + 1"))
 	}(article.ID)
 }
 
 // LikeArticleView 点赞文章
 func (ArticleApi) LikeArticleView(c *gin.Context) {
+	// 获取点赞用户id以及文章id
+	articleIdStr := c.Param("id")
+	articleId, _ := strconv.ParseUint(articleIdStr, 10, 64)
+	userIdAny, _ := c.Get(consts.UserId)
+	userId, _ := userIdAny.(uint)
+	// 获取是否点赞文章
+	var likeArticleRequestParams request.LikeArticleRequestParams
+	err := c.ShouldBindJSON(&likeArticleRequestParams)
+	if err != nil {
+		res.Fail(c, 500, consts.RequestParamParseError)
+		return
+	}
+	db := global.MysqlDB
+	// 判断是点赞操作还是取消点赞操作
+	if likeArticleRequestParams.IsLike {
+		// 取消点赞
+		db.Where("user_id = ? AND article_id = ?", userId, articleId).Delete(models.ArticleLike{})
+		// 点赞数-1
+		go func(articleId uint) {
+			db.Model(&models.Article{}).
+				Where("id = ?", articleId).
+				Update("like_count", gorm.Expr("like_count - 1"))
+		}(uint(articleId))
+	} else {
+		// 新增点赞记录
+		db.Create(&models.ArticleLike{
+			ArticleID: uint(articleId),
+			UserID:    userId,
+		})
+		// 点赞数+1
+		go func(articleId uint) {
+			db.Model(&models.Article{}).
+				Where("id = ?", articleId).
+				Update("like_count", gorm.Expr("like_count + 1"))
+		}(uint(articleId))
+	}
+	message := func() string {
+		if likeArticleRequestParams.IsLike {
+			return "取消点赞成功"
+		}
+		return "点赞成功"
+	}()
+	res.Success(c, nil, message)
+}
+
+// CollectArticleView 收藏文章
+func (ArticleApi) CollectArticleView(c *gin.Context) {
+	// 获取收藏文章id
+	articleIdStr := c.Param("id")
+	articleId, _ := strconv.ParseUint(articleIdStr, 10, 64)
+	// 获取添加收藏夹id
+	var collectArticleRequestParams request.CollectArticleRequestParams
+	err := c.ShouldBindJSON(&collectArticleRequestParams)
+	if err != nil {
+		res.Fail(c, 500, consts.RequestParamParseError)
+	}
+	// 获取当前收藏用户id
+	userIdAny, _ := c.Get(consts.UserId)
+	userId, _ := userIdAny.(uint)
+	db := global.MysqlDB
+	tx := db.Begin()
+	// 如果该文章还没有被收藏那么就收藏数+1
+	var collectRecord models.UserArticleCollect
+	err = tx.Where("user_id = ? AND article_id = ?", userId, uint(articleId)).First(&collectRecord).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := tx.Model(&models.Article{}).
+			Where("id = ?", articleId).
+			Update("collect_count", gorm.Expr("collect_count + 1")).
+			Error; err != nil {
+			tx.Rollback()
+			res.Fail(c, 500, consts.CollectError)
+			return
+		}
+	}
+	// 新增收藏记录
+	if err := tx.Create(&models.UserArticleCollect{
+		ArticleID:  uint(articleId),
+		FavoriteID: collectArticleRequestParams.FavoriteId,
+		UserID:     userId,
+	}).Error; err != nil {
+		tx.Rollback()
+		res.Fail(c, 500, consts.CollectError)
+		return
+	}
+	// 新增收藏夹记录
+	if err := tx.Create(&models.FavoriteArticles{
+		ArticleID:  uint(articleId),
+		FavoriteID: collectArticleRequestParams.FavoriteId,
+	}).Error; err != nil {
+		tx.Rollback()
+		res.Fail(c, 500, consts.CollectError)
+		return
+	}
+	tx.Commit()
+	res.Success(c, nil, consts.CollectSuccess)
 }

@@ -11,6 +11,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type FavoriteApi struct{}
@@ -31,6 +32,9 @@ func (FavoriteApi) GetUserFavoriteListView(c *gin.Context) {
 			Abstract:     f.Abstract,
 			IsDefault:    f.IsDefault,
 			ArticleCount: len(f.Articles),
+			CollectArticleIdList: utils.MapSlice(f.Articles, func(article models.Article) uint {
+				return article.ID
+			}),
 		}
 	})
 	res.Success(c, favoriteListResponse, "")
@@ -226,13 +230,80 @@ func (FavoriteApi) RemoveFavoriteArticleView(c *gin.Context) {
 	if err := c.ShouldBindJSON(&removeFavoriteArticleRequestParams); err != nil {
 		res.Fail(c, 500, consts.RequestParamParseError)
 	}
+
 	db := global.MysqlDB
-	err := db.Model(&models.FavoriteArticles{}).
-		Where("favorite_id = ? And article_id in (?)", favoriteId, removeFavoriteArticleRequestParams.ArticleIDs).
-		Delete(&models.FavoriteArticles{}).Error
-	if err != nil {
-		res.Fail(c, 500, consts.RemoveError)
+
+	// 开启事务
+	tx := db.Begin()
+	if tx.Error != nil {
+		res.Fail(c, 500, "数据库事务开启失败")
+		return
 	}
+	// 1. 删除收藏夹中与文章的关联记录
+	if err := tx.Where(
+		"favorite_id = ? AND article_id IN (?)",
+		favoriteId,
+		removeFavoriteArticleRequestParams.ArticleIDs,
+	).Delete(&models.FavoriteArticles{}).Error; err != nil {
+		tx.Rollback()
+		res.Fail(c, 500, consts.RemoveError)
+		return
+	}
+
+	// 获取用户 ID
+	userIdAny, _ := c.Get(consts.UserId)
+	userId := userIdAny.(uint)
+
+	// 2. 获取用户所有收藏夹
+	var favorites []models.Favorite
+	if err := tx.Preload("Articles").Where("user_id = ?", userId).Find(&favorites).Error; err != nil {
+		tx.Rollback()
+		res.Fail(c, 500, consts.FindTargetFavoriteError)
+		return
+	}
+
+	// 3. 遍历每个文章ID
+	for _, aid := range removeFavoriteArticleRequestParams.ArticleIDs {
+		hasCollected := false
+
+		for _, fav := range favorites {
+			for _, art := range fav.Articles {
+				if art.ID == aid {
+					hasCollected = true
+					break
+				}
+			}
+			if hasCollected {
+				break
+			}
+		}
+
+		// 如果用户在其他收藏夹还收藏该文章 → 不处理 更改collect_count, 以及删除用户收藏记录操作
+		if hasCollected {
+			continue
+		}
+
+		// 不存在收藏 → collect_count - 1
+		if err := tx.Model(&models.Article{}).
+			Where("id = ?", aid).
+			Update("collect_count", gorm.Expr("collect_count - 1")).Error; err != nil {
+			tx.Rollback()
+			res.Fail(c, 500, consts.ArticleNotFound)
+			return
+		}
+
+		// 删除用户收藏关系
+		if err := tx.Where("article_id = ? AND user_id = ?", aid, userId).
+			Delete(&models.UserArticleCollect{}).Error; err != nil {
+			tx.Rollback()
+			res.Fail(c, 500, consts.RemoveError)
+			return
+		}
+	}
+
+	// 全部成功 → 提交事务
+	tx.Commit()
+
 	res.Success(c, nil, consts.RemoveSuccess)
 }
 

@@ -25,4 +25,5 @@ func ArticleRouter(router *gin.RouterGroup) {
 	private.GET("/statistic", app.GetUserArticleCreateProcessView)
 	private.DELETE("/remove/browse", app.ClearUserBrowseArticleHistoryView)
 	private.POST("/like/:id", app.LikeArticleView)
+	private.POST("/collect/:id", app.CollectArticleView)
 }

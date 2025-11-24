@@ -214,6 +214,7 @@ func (UserApi) GetUserFollowedView(c *gin.Context) {
 	res.Success(c, pagination, "")
 }
 
+// UpdateFollowView 关注/取消关注用户
 func (UserApi) UpdateFollowView(c *gin.Context) {
 	// 获取请求参数
 	operateUserIdStr := c.Param("id")

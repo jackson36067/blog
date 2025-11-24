@@ -4,12 +4,11 @@ import "time"
 
 // UserArticleCollect 用户收藏文章表
 type UserArticleCollect struct {
-	// 创建复合索引一篇文章可以被用户收藏到多个收藏夹
-	UserID     uint      `json:"userId" gorm:"uniqueIndex:idx_user_article_collect"`
+	UserID     uint      `json:"userId" gorm:"uniqueIndex:idx_user_article_collect,priority:1"`
 	User       *User     `json:"user" gorm:"foreignKey:UserID"`
-	ArticleID  uint      `json:"articleId" gorm:"uniqueIndex:idx_user_article_collect"`
+	ArticleID  uint      `json:"articleId" gorm:"uniqueIndex:idx_user_article_collect,priority:2"`
 	Article    *Article  `json:"article" gorm:"foreignKey:ArticleID"`
-	FavoriteID uint      `json:"favoriteId" gorm:"uniqueIndex:idx_user_article_collect"` // 收藏夹ID
-	Favorite   *Favorite `json:"-" gorm:"foreignKey:FavoriteID;"`
+	FavoriteID uint      `json:"favoriteId" gorm:"uniqueIndex:idx_user_article_collect,priority:3"`
+	Favorite   *Favorite `json:"-" gorm:"foreignKey:FavoriteID"`
 	CreatedAt  time.Time `json:"createdAt"`
 }

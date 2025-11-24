@@ -27,6 +27,7 @@ func MigrateDB() {
 		&models.GlobalNotification{},
 		&models.ArticleTag{},
 		&models.UserFollow{},
+		&models.CommentLike{},
 	)
 	if err != nil {
 		logrus.Fatalf("数据库迁移失败 %s", err)
