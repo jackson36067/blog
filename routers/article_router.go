@@ -17,6 +17,7 @@ func ArticleRouter(router *gin.RouterGroup) {
 	public.GET("/category/list", app.GetArticleCategoryListView)
 	public.GET("/tag/list", app.GetArticleTagListView)
 	public.GET("/detail/:id", app.GetArticleDetailView)
+	public.GET("/comment/:id", app.GetArticleCommentsByPagination)
 	// 文章路由需要登录的路由组
 	private := router.Group("/article")
 	private.Use(middleware.JwtVerify())

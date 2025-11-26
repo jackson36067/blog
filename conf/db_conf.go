@@ -21,5 +21,5 @@ type RedisConf struct {
 }
 
 func (m MysqlConf) MysqlDSN() string {
-	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8&parseTime=True&loc=Asia%%2FShanghai", m.Username, m.Password, m.Host, m.Port, m.Dbname)
+	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Asia%%2FShanghai", m.Username, m.Password, m.Host, m.Port, m.Dbname)
 }

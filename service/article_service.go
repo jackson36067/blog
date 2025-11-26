@@ -5,6 +5,7 @@ import (
 	"blog/models"
 	"blog/utils"
 	"sort"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -104,11 +105,6 @@ func ArticlesToArticleResponse(articles []models.Article) []response.ArticleResp
 
 // GetArticleGroupedByTime 获取文章通过时间分组结果
 func GetArticleGroupedByTime(browseArticles []models.UserArticleBrowseHistory) []response.ArticleGroup {
-	now := time.Now()
-	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	startOfYesterday := startOfToday.AddDate(0, 0, -1)
-	startOfWeek := startOfToday.AddDate(0, 0, -7)
-	startOfYear := time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location())
 
 	groupMap := make(map[string][]response.ArticleResponse)
 	orderKeys := make([]string, 0) // 👉 保存出现顺序
@@ -116,20 +112,7 @@ func GetArticleGroupedByTime(browseArticles []models.UserArticleBrowseHistory) [
 	for _, a := range browseArticles {
 		// 根据浏览时间排序
 		t := a.CreatedAt
-
-		var groupKey string
-		switch {
-		case t.After(startOfToday):
-			groupKey = "今日"
-		case t.After(startOfYesterday):
-			groupKey = "昨天"
-		case t.After(startOfWeek):
-			groupKey = "最近一周"
-		case t.After(startOfYear):
-			groupKey = t.Format("01-02") // 本年显示 MM-dd
-		default:
-			groupKey = t.Format("2006-01-02") // 往年显示 yyyy-MM-dd
-		}
+		groupKey := utils.GetDetailDate(t)
 		article := a.Article
 		ar := response.ArticleResponse{
 			Id:            article.ID,
@@ -168,8 +151,34 @@ func GetArticleGroupedByTime(browseArticles []models.UserArticleBrowseHistory) [
 	return result
 }
 
+// UnifyArticleDetailResult 对文章详情返回结果进行统一
+func UnifyArticleDetailResult(article models.Article, isLike bool, isCollect bool, isFollow bool, comment *response.CommentResponse, totalComment int64, totalRootComment int64) response.ArticleResponse {
+	return response.ArticleResponse{
+		Id:               article.ID,
+		Title:            article.Title,
+		Abstract:         article.Abstract,
+		Content:          article.Content,
+		Tags:             article.TagList,
+		CreatedAt:        article.CreatedAt.Format("2006-01-02 15:04:05"),
+		BrowseCount:      article.BrowseCount,
+		LikeCount:        article.LikeCount,
+		CollectCount:     article.CollectCount,
+		CommentCount:     article.CommentCount,
+		PublicComment:    article.PublicComment,
+		UserID:           article.UserID,
+		Username:         article.User.Username,
+		Avatar:           article.User.Avatar,
+		IsLike:           isLike,
+		IsCollect:        isCollect,
+		IsFollow:         isFollow,
+		Comment:          comment,
+		TotalComment:     uint(totalComment),
+		TotalRootComment: uint(totalRootComment),
+	}
+}
+
 // GetArticleComments 获取文章评论
-func GetArticleComments(db *gorm.DB, rootIDs []uint, rootComments []models.Comment) []*response.CommentResponse {
+func GetArticleComments(db *gorm.DB, rootIDs []uint, rootComments []models.Comment, token string) []*response.CommentResponse {
 
 	// 如果根评论为空则直接返回
 	if len(rootComments) == 0 {
@@ -181,7 +190,7 @@ func GetArticleComments(db *gorm.DB, rootIDs []uint, rootComments []models.Comme
 	db.Preload("User").
 		Preload("ReplyToUser").
 		Where("root_parent_id IN ?", rootIDs).
-		Order("like_count DESC, created_at ASC").
+		Order("created_at ASC").
 		Find(&subComments)
 
 	// 2. 按 root_parent_id 分组
@@ -197,6 +206,11 @@ func GetArticleComments(db *gorm.DB, rootIDs []uint, rootComments []models.Comme
 
 		// 子评论 response
 		subResp := utils.MapSlice(subMap[root.ID], func(sub models.Comment) *response.CommentResponse {
+			var commentLike models.CommentLike
+			if token != "" {
+				claims, _ := utils.ParseToken(strings.Split(token, " ")[1])
+				db.Where("comment_id = ? AND user_id = ?", sub.ID, claims.UserID).Find(&commentLike)
+			}
 			return &response.CommentResponse{
 				ID:              sub.ID,
 				UserID:          sub.UserID,
@@ -204,12 +218,19 @@ func GetArticleComments(db *gorm.DB, rootIDs []uint, rootComments []models.Comme
 				Avatar:          sub.User.Avatar,
 				Content:         sub.Content,
 				LikeCount:       sub.LikeCount,
+				IsLike:          commentLike.UserID > 0,
 				RootCommentID:   sub.RootParentID,
 				SubComment:      []*response.CommentResponse{},
-				CreateTime:      sub.CreatedAt.Format("2006.01.02"),
+				CreateTime:      utils.GetDetailDate(sub.CreatedAt),
 				ReplyToUsername: sub.ReplyToUser.Username,
 			}
 		})
+
+		var commentLike models.CommentLike
+		if token != "" {
+			claims, _ := utils.ParseToken(strings.Split(token, " ")[1])
+			db.Where("comment_id = ? AND user_id = ?", root.ID, claims.UserID).Find(&commentLike)
+		}
 
 		// 根评论 response
 		result = append(result, &response.CommentResponse{
@@ -219,9 +240,10 @@ func GetArticleComments(db *gorm.DB, rootIDs []uint, rootComments []models.Comme
 			Avatar:          root.User.Avatar,
 			Content:         root.Content,
 			LikeCount:       root.LikeCount,
+			IsLike:          commentLike.UserID > 0,
 			RootCommentID:   root.RootParentID,
 			SubComment:      subResp,
-			CreateTime:      root.CreatedAt.Format("2006.01.02"),
+			CreateTime:      utils.GetDetailDate(root.CreatedAt),
 			ReplyToUsername: "",
 		})
 	}

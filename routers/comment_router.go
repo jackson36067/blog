@@ -15,4 +15,6 @@ func CommentRouter(router *gin.RouterGroup) {
 	private := router.Group("/comment")
 	private.Use(middleware.JwtVerify())
 	private.POST("/publish", app.PublishCommentView)
+	private.POST("/like/:id", app.LikeCommentView)
+	private.DELETE("delete/:id", app.DeleteCommentView)
 }

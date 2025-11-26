@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -234,45 +235,44 @@ func (ArticleApi) GetArticleDetailView(c *gin.Context) {
 		res.Fail(c, 500, consts.ArticleNotFound)
 		return
 	}
-	// 获取文章根评论(10条)以及子评论
-	var rootComments []models.Comment
-	var articleTotalRootComment int64
+	// 获取文章象征性评论(1条热评)
+	var articleSymbolComment models.Comment
 	db.Preload("User").
 		Where("article_id = ? AND root_parent_id IS NULL", articleId).
-		Order("like_count DESC, created_at DESC").
-		Count(&articleTotalRootComment).
-		Limit(10).
-		Find(&rootComments)
-	// 抽取 rootIDs
-	rootIDs := make([]uint, 0, len(rootComments))
-	for _, r := range rootComments {
-		rootIDs = append(rootIDs, r.ID)
+		Order("like_count DESC").
+		Limit(1).
+		Find(&articleSymbolComment)
+	var commentResponse *response.CommentResponse
+	if articleSymbolComment.ID > 0 {
+		commentResponse = &response.CommentResponse{
+			ID:       articleSymbolComment.ID,
+			UserID:   articleSymbolComment.UserID,
+			Username: articleSymbolComment.User.Username,
+			Avatar:   articleSymbolComment.User.Avatar,
+			Content:  articleSymbolComment.Content,
+		}
 	}
-	commentResponses := service.GetArticleComments(db, rootIDs, rootComments)
+	var articleTotalComments int64
+	var articleTotalRootComment int64
+	// 统计所有评论数量（包含子评论）
+	db.Model(&models.Comment{}).
+		Where("article_id = ?", articleId).
+		Count(&articleTotalComments)
+	// 统计根评论数量（root_parent_id = NULL）
+	db.Model(&models.Comment{}).
+		Where("article_id = ? AND root_parent_id IS NULL", articleId).
+		Count(&articleTotalRootComment)
 	var articleResponse response.ArticleResponse
 	// 访问的是无登录状态下
 	if token == "" {
-		articleResponse = response.ArticleResponse{
-			Id:            article.ID,
-			Title:         article.Title,
-			Abstract:      article.Abstract,
-			Content:       article.Content,
-			Tags:          article.TagList,
-			CreatedAt:     article.CreatedAt.Format("2006-01-02 15:04:05"),
-			BrowseCount:   article.BrowseCount,
-			LikeCount:     article.LikeCount,
-			CollectCount:  article.CollectCount,
-			CommentCount:  article.CommentCount,
-			PublicComment: article.PublicComment,
-			UserID:        article.UserID,
-			Username:      article.User.Username,
-			Avatar:        article.User.Avatar,
-			IsLike:        false,
-			IsCollect:     false,
-			IsFollow:      false,
-			Comments:      commentResponses,
-			TotalComment:  uint(articleTotalRootComment),
-		}
+		articleResponse = service.UnifyArticleDetailResult(article,
+			false,
+			false,
+			false,
+			commentResponse,
+			articleTotalComments,
+			articleTotalRootComment,
+		)
 	} else {
 		token = strings.Split(c.Request.Header.Get("Authorization"), " ")[1]
 		claims, _ := utils.ParseToken(token)
@@ -296,34 +296,45 @@ func (ArticleApi) GetArticleDetailView(c *gin.Context) {
 			Where("follower_id = ? AND followed_id = ?", userId, article.UserID).
 			Limit(1).
 			Find(&isFollow)
-		articleResponse = response.ArticleResponse{
-			Id:            article.ID,
-			Title:         article.Title,
-			Abstract:      article.Abstract,
-			Content:       article.Content,
-			Tags:          article.TagList,
-			CreatedAt:     article.CreatedAt.Format("2006-01-02 15:04:05"),
-			BrowseCount:   article.BrowseCount,
-			LikeCount:     article.LikeCount,
-			CollectCount:  article.CollectCount,
-			CommentCount:  article.CommentCount,
-			PublicComment: article.PublicComment,
-			UserID:        article.UserID,
-			Username:      article.User.Username,
-			Avatar:        article.User.Avatar,
-			IsLike:        isLike,
-			IsCollect:     isCollect,
-			IsFollow:      isFollow,
-			Comments:      commentResponses,
-			TotalComment:  uint(articleTotalRootComment),
-		}
+		articleResponse = service.UnifyArticleDetailResult(
+			article,
+			isLike,
+			isCollect,
+			isFollow,
+			commentResponse,
+			articleTotalComments,
+			articleTotalRootComment,
+		)
 		// 保存用户浏览文章历史记录
 		go func(articleId uint, userId uint) {
-			userArticleBrowseHistory := models.UserArticleBrowseHistory{
-				UserID:    userId,
-				ArticleID: articleId,
+			// 查看用户今日是否访问过了
+			var userArticleBrowseHistory models.UserArticleBrowseHistory
+			// 今天开始时间
+			startOfDay := time.Date(
+				time.Now().Year(),
+				time.Now().Month(),
+				time.Now().Day(),
+				0, 0, 0, 0,
+				time.Local,
+			)
+			// 今天结束时间
+			endOfDay := startOfDay.Add(24 * time.Hour)
+			// 查询是否存在记录
+			db.Where(
+				"article_id = ? AND user_id = ? AND created_at BETWEEN ? AND ?",
+				articleId, userId, startOfDay, endOfDay,
+			).Find(&userArticleBrowseHistory)
+			if userArticleBrowseHistory.UserID > 0 {
+				// 存在,修改浏览时间
+				db.Model(&userArticleBrowseHistory).
+					Update("created_at", time.Now())
+			} else {
+				userArticleBrowseHistory = models.UserArticleBrowseHistory{
+					UserID:    userId,
+					ArticleID: articleId,
+				}
+				db.Create(&userArticleBrowseHistory)
 			}
-			db.Create(&userArticleBrowseHistory)
 		}(article.ID, userId)
 	}
 	res.Success(c, articleResponse, "")
@@ -430,4 +441,32 @@ func (ArticleApi) CollectArticleView(c *gin.Context) {
 	}
 	tx.Commit()
 	res.Success(c, nil, consts.CollectSuccess)
+}
+
+// GetArticleCommentsByPagination 分页获取文章评论列表
+func (ArticleApi) GetArticleCommentsByPagination(c *gin.Context) {
+	articleIdStr := c.Param("id")
+	articleId, _ := utils.StringToUint(articleIdStr)
+	token := c.Request.Header.Get("Authorization")
+	var params request.ArticleCommentRequestParams
+	err := c.ShouldBindQuery(&params)
+	if err != nil {
+		res.Fail(c, 500, consts.RequestParamParseError)
+	}
+	db := global.MysqlDB
+	var rootComments []models.Comment
+	db.Model(&models.Comment{}).
+		Preload("User").
+		Where("article_id = ? AND root_parent_id IS NULL", articleId).
+		Order("created_at DESC").
+		Offset((params.Page - 1) * params.PageSize).
+		Limit(params.PageSize).
+		Find(&rootComments)
+	// 抽取 rootIDs
+	rootIDs := make([]uint, 0, len(rootComments))
+	for _, r := range rootComments {
+		rootIDs = append(rootIDs, r.ID)
+	}
+	commentResponses := service.GetArticleComments(db, rootIDs, rootComments, token)
+	res.Success(c, commentResponses, "")
 }

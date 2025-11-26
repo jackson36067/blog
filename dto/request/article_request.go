@@ -32,3 +32,8 @@ type LikeArticleRequestParams struct {
 type CollectArticleRequestParams struct {
 	FavoriteId uint `json:"favoriteId"`
 }
+
+type ArticleCommentRequestParams struct {
+	Page     int `form:"page"`
+	PageSize int `form:"pageSize"`
+}
