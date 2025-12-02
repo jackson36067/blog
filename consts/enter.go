@@ -81,6 +81,7 @@ const (
 	ArticleNotFound                  = "文章不存在"
 	CollectError                     = "收藏失败"
 	CollectSuccess                   = "收藏成功"
+	PublishArticleSuccess            = "发布文章成功"
 )
 
 // AffairCommitError 事务相关常量

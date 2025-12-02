@@ -174,6 +174,8 @@ func UnifyArticleDetailResult(article models.Article, isLike bool, isCollect boo
 		Comment:          comment,
 		TotalComment:     uint(totalComment),
 		TotalRootComment: uint(totalRootComment),
+		CategoryName:     article.Category.Title,
+		Visibility:       article.Visibility,
 	}
 }
 

@@ -37,3 +37,15 @@ type ArticleCommentRequestParams struct {
 	Page     int `form:"page"`
 	PageSize int `form:"pageSize"`
 }
+
+type PublishArticleRequestParams struct {
+	Title         string                 `json:"title"`
+	Abstract      string                 `json:"abstract"`
+	Content       string                 `json:"content"`
+	Tags          []string               `json:"tags"`
+	Coverage      string                 `json:"coverage"`
+	CategoryName  string                 `json:"categoryName"`
+	Visibility    enum.ArticleVisibility `json:"visibility"`
+	PublicComment bool                   `json:"publicComment"`
+	Status        enum.ArticleStatus     `json:"status"`
+}

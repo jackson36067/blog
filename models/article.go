@@ -21,8 +21,8 @@ type Article struct {
 	CommentCount  int                    `json:"commentCount"`                                                                                       // 文章评论数
 	CollectCount  int                    `json:"collectCount"`                                                                                       // 文章收藏数
 	PublicComment bool                   `json:"publicComment"`                                                                                      // 是否开启评论
-	Status        enum.ArticleStatus     `json:"status"`                                                                                             // 文章状态: 草稿 审核中 已发布
-	Visibility    enum.ArticleVisibility `json:"visibility"`                                                                                         // 文章可见范围
+	Status        enum.ArticleStatus     `json:"status"`                                                                                             // 文章状态: 1.草稿 2.审核中 3.已发布
+	Visibility    enum.ArticleVisibility `json:"visibility"`                                                                                         // 文章可见范围 0.所有人可见 1.仅粉丝可见 2.仅自己可见
 	Favorites     []Favorite             `json:"favorites" gorm:"many2many:favorite_articles;joinForeignKey:article_id;joinReferences:favorite_id;"` // 文章被收藏收藏夹列表
 	Comments      []Comment              `json:"comments" gorm:"foreignKey:ArticleID"`
 }

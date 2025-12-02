@@ -17,7 +17,7 @@ func ArticleRouter(router *gin.RouterGroup) {
 	public.GET("/category/list", app.GetArticleCategoryListView)
 	public.GET("/tag/list", app.GetArticleTagListView)
 	public.GET("/detail/:id", app.GetArticleDetailView)
-	public.GET("/comment/:id", app.GetArticleCommentsByPagination)
+	public.GET("/comment/:id", app.GetArticleCommentsByPaginationView)
 	// 文章路由需要登录的路由组
 	private := router.Group("/article")
 	private.Use(middleware.JwtVerify())
@@ -27,4 +27,5 @@ func ArticleRouter(router *gin.RouterGroup) {
 	private.DELETE("/remove/browse", app.ClearUserBrowseArticleHistoryView)
 	private.POST("/like/:id", app.LikeArticleView)
 	private.POST("/collect/:id", app.CollectArticleView)
+	private.POST("/publish", app.PublishArticleView)
 }

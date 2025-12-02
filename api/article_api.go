@@ -205,7 +205,7 @@ func (ArticleApi) ClearUserBrowseArticleHistoryView(c *gin.Context) {
 	res.Success(c, nil, consts.ClearUserBrowseHistorySuccess)
 }
 
-// GetArticleCategoryListView 分页获取文章分类列表
+// GetArticleCategoryListView 获取文章分类列表
 func (ArticleApi) GetArticleCategoryListView(c *gin.Context) {
 	db := global.MysqlDB
 	var categoryList []models.ArticleCategory
@@ -229,6 +229,7 @@ func (ArticleApi) GetArticleDetailView(c *gin.Context) {
 	var article models.Article
 	db.Model(&models.Article{}).
 		Preload("User").
+		Preload("Category").
 		Where("id = ?", articleId).
 		First(&article)
 	if article.ID == 0 {
@@ -443,8 +444,8 @@ func (ArticleApi) CollectArticleView(c *gin.Context) {
 	res.Success(c, nil, consts.CollectSuccess)
 }
 
-// GetArticleCommentsByPagination 分页获取文章评论列表
-func (ArticleApi) GetArticleCommentsByPagination(c *gin.Context) {
+// GetArticleCommentsByPaginationView 分页获取文章评论列表
+func (ArticleApi) GetArticleCommentsByPaginationView(c *gin.Context) {
 	articleIdStr := c.Param("id")
 	articleId, _ := utils.StringToUint(articleIdStr)
 	token := c.Request.Header.Get("Authorization")
@@ -469,4 +470,54 @@ func (ArticleApi) GetArticleCommentsByPagination(c *gin.Context) {
 	}
 	commentResponses := service.GetArticleComments(db, rootIDs, rootComments, token)
 	res.Success(c, commentResponses, "")
+}
+
+// PublishArticleView 发布文章
+func (ArticleApi) PublishArticleView(c *gin.Context) {
+	userIdAny, _ := c.Get(consts.UserId)
+	userId, _ := userIdAny.(uint)
+	var publishArticleRequestParams request.PublishArticleRequestParams
+	err := c.ShouldBindJSON(&publishArticleRequestParams)
+	if err != nil {
+		res.Fail(c, 500, consts.RequestParamParseError)
+	}
+	db := global.MysqlDB
+	// 判断该文章分类是否存在,不存在创建出来
+	err = db.Transaction(func(tx *gorm.DB) error {
+		var articleCategory models.ArticleCategory
+		// 查找不存在就会新增,新增后会回显ID
+		err := db.Where("LOWER(title) = LOWER(?)", publishArticleRequestParams.CategoryName).
+			FirstOrCreate(&articleCategory, models.ArticleCategory{
+				Title: publishArticleRequestParams.CategoryName,
+			}).Error // 新增文章信息
+		if err != nil {
+			return err
+		}
+		var article = models.Article{
+			Title:         publishArticleRequestParams.Title,
+			Abstract:      publishArticleRequestParams.Abstract,
+			Content:       publishArticleRequestParams.Content,
+			UserID:        userId,
+			CategoryID:    articleCategory.ID,
+			Coverage:      publishArticleRequestParams.Coverage,
+			Visibility:    publishArticleRequestParams.Visibility,
+			TagList:       publishArticleRequestParams.Tags,
+			BrowseCount:   0,
+			LikeCount:     0,
+			CommentCount:  0,
+			CollectCount:  0,
+			PublicComment: publishArticleRequestParams.PublicComment,
+			Status:        publishArticleRequestParams.Status,
+		}
+		err = db.Create(&article).Error
+		if err != nil {
+			return err
+		}
+		// 返回文章id用于跳转页面
+		res.Success(c, article.ID, consts.PublishArticleSuccess)
+		return nil
+	})
+	if err != nil {
+		res.Fail(c, 500, err.Error())
+	}
 }
