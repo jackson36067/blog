@@ -10,6 +10,7 @@ import (
 	"blog/res"
 	"blog/service"
 	"blog/utils"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -165,6 +166,11 @@ func (ArticleApi) GetUserArticlePaginationView(c *gin.Context) {
 	tx = tx.Where("user_id = ?", userId)
 	if myArticleQueryParam.Visibility == enum.Private {
 		tx = tx.Where("visibility = ?", enum.Private)
+	}
+	if myArticleQueryParam.Status == enum.Draft {
+		tx = tx.Where("status = ?", enum.Draft)
+	} else {
+		tx = tx.Where("status = ?", enum.Published)
 	}
 	startTime := myArticleQueryParam.StartTime
 	endTime := myArticleQueryParam.EndTime
@@ -491,6 +497,7 @@ func (ArticleApi) PublishArticleView(c *gin.Context) {
 				Title: publishArticleRequestParams.CategoryName,
 			}).Error // 新增文章信息
 		if err != nil {
+			res.Fail(c, 500, consts.UpdateCategoryError)
 			return err
 		}
 		var article = models.Article{
@@ -511,6 +518,7 @@ func (ArticleApi) PublishArticleView(c *gin.Context) {
 		}
 		err = db.Create(&article).Error
 		if err != nil {
+			res.Fail(c, 500, consts.PublishArticleError)
 			return err
 		}
 		// 返回文章id用于跳转页面
@@ -520,4 +528,49 @@ func (ArticleApi) PublishArticleView(c *gin.Context) {
 	if err != nil {
 		res.Fail(c, 500, err.Error())
 	}
+}
+
+// UpdateArticleView 更新文章信息
+func (ArticleApi) UpdateArticleView(c *gin.Context) {
+	// 解析参数
+	articleId := c.Param("id")
+	var publishArticleRequestParams request.PublishArticleRequestParams
+	err := c.ShouldBindJSON(&publishArticleRequestParams)
+	if err != nil {
+		res.Fail(c, 500, consts.RequestParamParseError)
+	}
+	db := global.MysqlDB
+	tx := db.Begin()
+	var articleCategory models.ArticleCategory
+	err = tx.Where("LOWER(title) = LOWER(?)", publishArticleRequestParams.CategoryName).FirstOrCreate(&articleCategory, models.ArticleCategory{
+		Title: publishArticleRequestParams.CategoryName,
+	}).Error
+	if err != nil {
+		res.Fail(c, 400, consts.UpdateCategoryError)
+		tx.Rollback()
+	}
+	tagJSON, err := json.Marshal(publishArticleRequestParams.Tags)
+	if err != nil {
+		res.Fail(c, 400, consts.UpdateArticleError)
+		tx.Rollback()
+	}
+	err = tx.Model(&models.Article{}).
+		Where("id = ?", articleId).
+		Updates(map[string]any{
+			"title":          publishArticleRequestParams.Title,
+			"content":        publishArticleRequestParams.Content,
+			"abstract":       publishArticleRequestParams.Abstract,
+			"coverage":       publishArticleRequestParams.Coverage,
+			"tag_list":       string(tagJSON),
+			"public_comment": publishArticleRequestParams.PublicComment,
+			"category_id":    articleCategory.ID,
+			"visibility":     publishArticleRequestParams.Visibility,
+			"status":         publishArticleRequestParams.Status,
+		}).
+		Error
+	if err != nil {
+		res.Fail(c, 400, consts.UpdateArticleError)
+		tx.Rollback()
+	}
+	tx.Commit()
 }

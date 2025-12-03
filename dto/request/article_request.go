@@ -19,6 +19,7 @@ type MyArticleQueryParams struct {
 	Page       int                    `form:"page" binding:"required"`
 	PageSize   int                    `form:"pageSize" binding:"required"`
 	Visibility enum.ArticleVisibility `form:"visibility"` // 获取文章的可见范围
+	Status     enum.ArticleStatus     `form:"status"`     // 文章的状态
 	OrderBy    string                 `form:"orderBy"`    // 根据什么排序
 	OrderType  string                 `form:"orderType"`  // 排序方式 (升序,降序)
 	StartTime  time.Time              `form:"startTime"`

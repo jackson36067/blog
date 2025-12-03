@@ -28,4 +28,5 @@ func ArticleRouter(router *gin.RouterGroup) {
 	private.POST("/like/:id", app.LikeArticleView)
 	private.POST("/collect/:id", app.CollectArticleView)
 	private.POST("/publish", app.PublishArticleView)
+	private.PUT("/update/:id", app.UpdateArticleView)
 }

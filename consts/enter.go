@@ -82,6 +82,9 @@ const (
 	CollectError                     = "收藏失败"
 	CollectSuccess                   = "收藏成功"
 	PublishArticleSuccess            = "发布文章成功"
+	PublishArticleError              = "发布文章失败"
+	UpdateCategoryError              = "更新文章分类失败"
+	UpdateArticleError               = "更新文章信息失败"
 )
 
 // AffairCommitError 事务相关常量

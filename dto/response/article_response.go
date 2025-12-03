@@ -30,6 +30,7 @@ type ArticleResponse struct {
 	TotalRootComment uint                   `json:"totalRootComment"` // 文章总共根评论数
 	CategoryName     string                 `json:"categoryName"`     // 文章分类名称
 	Visibility       enum.ArticleVisibility `json:"visibility"`       // 文章可见范围
+	Status           enum.ArticleStatus     `json:"status"`           // 文章状态
 }
 
 type ArticleHotTagsAndRandCategoryResponse struct {
