@@ -18,6 +18,8 @@ func main() {
 	global.MysqlDB = core.InitMysql()
 	// 初始化redis连接
 	global.RedisDB, global.Ctx = core.InitRedis()
+	// 初始化rabbitmq连接
+	global.MQ = core.InitRabbitMQ()
 	// 数据库迁移
 	flags.Run()
 	routers.Run()

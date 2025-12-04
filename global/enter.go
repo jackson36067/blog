@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/streadway/amqp"
 	"gorm.io/gorm"
 )
 
@@ -13,4 +14,5 @@ var (
 	MysqlDB *gorm.DB
 	RedisDB *redis.Client
 	Ctx     = context.Background()
+	MQ      *amqp.Connection
 )
