@@ -31,6 +31,8 @@ func Run() {
 	FavoriteRouter(routerGroups)
 	// 评论路由
 	CommentRouter(routerGroups)
+	// 消息路由
+	MessageRouter(routerGroups)
 	systemConf := global.Conf.System
 	// 启动路由
 	router.Run(systemConf.Host + ":" + systemConf.Port)
