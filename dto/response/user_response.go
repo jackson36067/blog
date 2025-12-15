@@ -1,6 +1,7 @@
 package response
 
 type UserDataResponse struct {
+	ID                          uint     `json:"id"`                          // 用户id
 	OriginArticle               int      `json:"originArticle"`               // 原创文章数量
 	Fans                        int      `json:"fans"`                        // 粉丝数量
 	Follow                      int      `json:"follow"`                      // 关注数
@@ -20,6 +21,7 @@ type UserDataResponse struct {
 	PublicBrowseHistory         bool     `json:"publicBrowseHistory"`         // 公开历史浏览记录
 	PublicPersonalList          bool     `json:"publicPersonalList"`          // 公开我的文章
 	SinceLastUpdateUsernameDays int      `json:"sinceLastUpdateUsernameDays"` // 距上一次更新用户名天数
+	IsFollow                    bool     `json:"isFollow"`                    // 当前用户是否关注该用户
 }
 
 type UserAchievementResponse struct {

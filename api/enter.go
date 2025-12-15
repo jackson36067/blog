@@ -9,6 +9,7 @@ type Api struct {
 	FavoriteApi FavoriteApi
 	CommentApi  CommentApi
 	MessageApi  MessageApi
+	SessionApi  SessionApi
 }
 
 var App = Api{}

@@ -33,6 +33,8 @@ func Run() {
 	CommentRouter(routerGroups)
 	// 消息路由
 	MessageRouter(routerGroups)
+	// 会话路由
+	SessionRouter(routerGroups)
 	systemConf := global.Conf.System
 	// 启动路由
 	router.Run(systemConf.Host + ":" + systemConf.Port)

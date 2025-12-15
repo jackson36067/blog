@@ -103,3 +103,10 @@ const (
 	UpdateUserError       = "更新用户信息出错"
 	UpdateUserConfigError = "更新用户配置信息出错"
 )
+
+// RabbitMQ相关常量
+const (
+	WsDelayExchangeName = "ws_delay_exchange"
+	WsRouterKey         = "ws_route_key"
+	WsQueueName         = "ws_msg_queue"
+)

@@ -56,7 +56,16 @@ func (UserApi) GetUserDataView(c *gin.Context) {
 	// 获取用户配置信息
 	var userConfig models.UserConfig
 	db.Where("user_id=?", user.ID).Find(&userConfig)
+	var isFollowUser bool
+	if userId != nil {
+		db.
+			Model(&models.UserFollow{}).
+			Select("count(*) > 0").
+			Where("follower_id = ? AND followed_id = ?", userId, user.ID).
+			Scan(&isFollowUser)
+	}
 	userDataResponse := response.UserDataResponse{
+		ID:                          user.ID,
 		OriginArticle:               len(user.Articles),
 		Fans:                        len(followers),
 		Follow:                      len(followed),
@@ -76,6 +85,7 @@ func (UserApi) GetUserDataView(c *gin.Context) {
 		PublicBrowseHistory:         userConfig.PublicBrowseHistory,
 		PublicPersonalList:          userConfig.PublicPersonalList,
 		SinceLastUpdateUsernameDays: int(time.Since(userConfig.UpdateUsernameDate).Hours() / 24),
+		IsFollow:                    user.ID != userId && isFollowUser,
 	}
 	res.Success(c, userDataResponse, "")
 }
