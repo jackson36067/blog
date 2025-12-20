@@ -1,15 +1,6 @@
 package api
 
 import (
-	"blog/consts"
-	"blog/dto/request"
-	"blog/dto/response"
-	"blog/enum"
-	"blog/global"
-	"blog/models"
-	"blog/res"
-	"blog/service"
-	"blog/utils"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,12 +10,21 @@ import (
 	"strings"
 	"time"
 
+	"blog/consts"
+	"blog/dto/request"
+	"blog/dto/response"
+	"blog/enum"
+	"blog/global"
+	"blog/models"
+	"blog/res"
+	"blog/service"
+	"blog/utils"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-type ArticleApi struct {
-}
+type ArticleApi struct{}
 
 // GetHomeArticleView 根据条件获取文章列表
 func (ArticleApi) GetHomeArticleView(c *gin.Context) {
@@ -148,7 +148,7 @@ func (ArticleApi) GetArticleHotTagsAndRandCategoryView(c *gin.Context) {
 		Offset(0).
 		Limit(10).
 		Find(&hotArticleTagList)
-	var articleTagsAndCategoryList = response.ArticleHotTagsAndRandCategoryResponse{ArticleTags: hotArticleTagList, ArticleCategories: articleCategoryList}
+	articleTagsAndCategoryList := response.ArticleHotTagsAndRandCategoryResponse{ArticleTags: hotArticleTagList, ArticleCategories: articleCategoryList}
 	res.Success(c, articleTagsAndCategoryList, "")
 }
 
@@ -500,7 +500,7 @@ func (ArticleApi) PublishArticleView(c *gin.Context) {
 			res.Fail(c, 500, consts.UpdateCategoryError)
 			return err
 		}
-		var article = models.Article{
+		article := models.Article{
 			Title:         publishArticleRequestParams.Title,
 			Abstract:      publishArticleRequestParams.Abstract,
 			Content:       publishArticleRequestParams.Content,

@@ -12,4 +12,5 @@ func SessionRouter(router *gin.RouterGroup) {
 	private := router.Group("/session")
 	private.Use(middleware.JwtVerify())
 	private.GET("/history", app.GetUserSessionHistory)
+	private.PUT("/update/:id", app.UpdateSession)
 }

@@ -1,13 +1,14 @@
 package utils
 
 import (
-	"blog/global"
 	"fmt"
 	"math/rand"
 	"mime/multipart"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"blog/global"
 
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 )

@@ -1,15 +1,17 @@
 package service
 
 import (
+	"sort"
+
 	"blog/dto/response"
+	"blog/enum"
 	"blog/global"
 	"blog/models"
 	"blog/utils"
-	"sort"
 )
 
-func BuildChatListItems(userID uint, sessions []models.Session) ([]response.ChatResponse, error) {
-	var list []response.ChatResponse
+func BuildChatListItems(userID uint, sessions []models.Session) ([]response.SessionResponse, error) {
+	var list []response.SessionResponse
 
 	for _, s := range sessions {
 		var chatUserID uint
@@ -38,10 +40,10 @@ func BuildChatListItems(userID uint, sessions []models.Session) ([]response.Chat
 		// 获取当前聊天队列未读消息数目
 		var unReadMessageCount int64
 		db.Model(&models.Message{}).
-			Where("sender_user_id = ? AND receiver_user_id = ?", chatUserID, userID).
+			Where("send_user_id = ? AND receive_user_id = ? AND type = ?", chatUserID, userID, enum.PrivateMessage).
 			Count(&unReadMessageCount)
 
-		item := response.ChatResponse{
+		item := response.SessionResponse{
 			SessionID:      s.ID,
 			ChatUserID:     chatUserID,
 			ChatUsername:   chatUser.Username,

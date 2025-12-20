@@ -1,6 +1,13 @@
 package api
 
 import (
+	"encoding/json"
+	"fmt"
+	"math"
+	"net/http"
+	"strings"
+	"time"
+
 	"blog/consts"
 	"blog/core"
 	"blog/dto/request"
@@ -10,12 +17,6 @@ import (
 	"blog/res"
 	"blog/service"
 	"blog/utils"
-	"encoding/json"
-	"fmt"
-	"math"
-	"net/http"
-	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -198,7 +199,7 @@ func (UserApi) GetUserFollowedView(c *gin.Context) {
 	tx = tx.Count(&total)
 	var userFollowed []models.UserFollow
 	// 分页获取分页总数量
-	tx = tx.Order("created_at desc").
+	tx.Order("created_at desc").
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
 		Find(&userFollowed)
@@ -213,7 +214,7 @@ func (UserApi) GetUserFollowedView(c *gin.Context) {
 			IsFollow: true,
 		}
 	})
-	var totalPage = int(math.Ceil(float64(total) / float64(pageSize)))
+	totalPage := int(math.Ceil(float64(total) / float64(pageSize)))
 	pagination := res.Pagination{
 		Page:          page,
 		PageSize:      pageSize,
@@ -276,7 +277,7 @@ func (UserApi) GetUserFollowerView(c *gin.Context) {
 	tx = tx.Count(&total)
 	var userFollower []models.UserFollow
 	// 分页获取粉丝总数量
-	tx = tx.Order("created_at desc").
+	tx.Order("created_at desc").
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
 		Find(&userFollower)
@@ -294,7 +295,7 @@ func (UserApi) GetUserFollowerView(c *gin.Context) {
 			IsFollow: followed.ID > 0,
 		}
 	})
-	var totalPage = int(math.Ceil(float64(total) / float64(pageSize)))
+	totalPage := int(math.Ceil(float64(total) / float64(pageSize)))
 	pagination := res.Pagination{
 		Page:          page,
 		PageSize:      pageSize,
@@ -347,7 +348,7 @@ func (UserApi) GetUserCommentsView(c *gin.Context) {
 			Where("user_id = ?", userId).
 			Preload("Article").
 			Order("created_at DESC").
-			//Count(&total).
+			// Count(&total).
 			Offset((page - 1) * pageSize).
 			Limit(pageSize).
 			Find(&comments)
@@ -401,9 +402,9 @@ func (UserApi) UpdateUserInfoView(c *gin.Context) {
 	}
 	db := global.MysqlDB
 	// 存储更改信息
-	var updateUserInfoMap = make(map[string]any)
+	updateUserInfoMap := make(map[string]any)
 	// 存储用户配置更改信息
-	var updateUserConfigMap = make(map[string]any)
+	updateUserConfigMap := make(map[string]any)
 	tx := db.Begin()
 	if updateUserRequestParams.Username != "" {
 		// 判断是否满足更改用户名条件
@@ -416,7 +417,7 @@ func (UserApi) UpdateUserInfoView(c *gin.Context) {
 			tx.Rollback()
 			return
 		}
-		differ := time.Now().Sub(userConfig.UpdateUsernameDate)
+		differ := time.Since(userConfig.UpdateUsernameDate)
 		// 判断上一次改名是否超过30天
 		if differ > 30*24*time.Hour {
 			updateUserInfoMap["username"] = updateUserRequestParams.Username

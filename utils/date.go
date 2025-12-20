@@ -61,3 +61,23 @@ func FormatChatTime(t time.Time) string {
 	// 不是今年 —— 显示完整年月日
 	return t.Format("2006-01-02")
 }
+
+func FormatMessageTime(t time.Time) string {
+	now := time.Now()
+
+	// 获取今天 00:00:00
+	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	// 1. 是今天：显示 15:04 (hh:mm)
+	if t.After(startOfToday) {
+		return t.Format("15:04")
+	}
+
+	// 2. 不是今天，但在今年之内：显示 01-02 15:04 (MM-dd hh:mm)
+	if t.Year() == now.Year() {
+		return t.Format("01-02 15:04")
+	}
+
+	// 3. 超过今年（往年）：显示 2006-01-02 15:04 (yyyy-MM-dd hh:mm)
+	return t.Format("2006-01-02 15:04")
+}
