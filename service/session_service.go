@@ -14,19 +14,16 @@ func BuildChatListItems(userID uint, sessions []models.Session) ([]response.Sess
 	var list []response.SessionResponse
 
 	for _, s := range sessions {
-		var chatUserID uint
 		var isPinned bool
 		var isMuted bool
 		var chatUser models.User
 
 		// 判断当前用户是 A 还是 B
 		if s.UserIDA == userID {
-			chatUserID = s.UserIDB
 			isPinned = s.IsPinnedA
 			isMuted = s.IsMutedA
 			chatUser = s.UserB
 		} else {
-			chatUserID = s.UserIDA
 			isPinned = s.IsPinnedB
 			isMuted = s.IsMutedB
 			chatUser = s.UserA
@@ -35,17 +32,17 @@ func BuildChatListItems(userID uint, sessions []models.Session) ([]response.Sess
 		// 判断用户是否关注聊天用户
 		db := global.MysqlDB
 		var followed models.UserFollow
-		db.Where("followed_id = ? AND follower_id = ?", chatUserID, userID).First(&followed)
+		db.Where("followed_id = ? AND follower_id = ?", chatUser.ID, userID).First(&followed)
 
 		// 获取当前聊天队列未读消息数目
 		var unReadMessageCount int64
 		db.Model(&models.Message{}).
-			Where("send_user_id = ? AND receive_user_id = ? AND type = ?", chatUserID, userID, enum.PrivateMessage).
+			Where("send_user_id = ? AND receive_user_id = ? AND type = ? AND is_read = ?", chatUser.ID, userID, enum.PrivateMessage, false).
 			Count(&unReadMessageCount)
 
 		item := response.SessionResponse{
 			SessionID:      s.ID,
-			ChatUserID:     chatUserID,
+			ChatUserID:     chatUser.ID,
 			ChatUsername:   chatUser.Username,
 			ChatUserAvatar: chatUser.Avatar,
 			LatestMessage:  s.LatestMessage,

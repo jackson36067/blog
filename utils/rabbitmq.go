@@ -1,11 +1,12 @@
 package utils
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"blog/consts"
 	"blog/models"
 	"blog/ws"
-	"encoding/json"
-	"fmt"
 
 	"github.com/streadway/amqp"
 )

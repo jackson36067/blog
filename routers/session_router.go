@@ -11,6 +11,8 @@ func SessionRouter(router *gin.RouterGroup) {
 	app := api.App.SessionApi
 	private := router.Group("/session")
 	private.Use(middleware.JwtVerify())
-	private.GET("/history", app.GetUserSessionHistory)
-	private.PUT("/update/:id", app.UpdateSession)
+	private.GET("/history", app.GetUserSessionHistoryView)
+	private.PUT("/update/:id", app.UpdateSessionView)
+	private.DELETE("/delete/:id", app.DeleteSessionView)
+	private.GET("/create", app.CreateOrGetSession)
 }

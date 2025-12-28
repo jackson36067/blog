@@ -85,6 +85,9 @@ const (
 	PublishArticleError              = "发布文章失败"
 	UpdateCategoryError              = "更新文章分类失败"
 	UpdateArticleError               = "更新文章信息失败"
+	DeleteMessageError               = "删除消息失败"
+	DeleteMessageSuccess             = "删除消息成功"
+	DeleteSessionError               = "删除会话失败"
 )
 
 // AffairCommitError 事务相关常量

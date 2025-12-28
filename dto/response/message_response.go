@@ -27,6 +27,7 @@ type ChatResponse struct {
 	ChatUsername   string `json:"chatUsername"`   // 聊天用户名称
 	ChatUserAvatar string `json:"chatUserAvatar"` // 聊天用户头像
 	Message        string `json:"message"`        // 消息内容
+	SendTime       string `json:"sendTime"`       // 发送时间
 }
 
 type OtherMessageResponse struct {
@@ -40,4 +41,16 @@ type OtherMessageResponse struct {
 	Extra         string `json:"extra"`         // 扩展字段（如文章ID、链接、评论ID等）
 	Title         string `json:"title"`         // 标题(可以是文章标题、评论标题等)
 	IsFollow      bool   `json:"isFollow"`      // 是否关注发送消息的用户
+}
+
+type SendMessageResponse struct {
+	Data any    `json:"data"`
+	Type string `json:"type"`
+}
+
+type PrivateSendMessageResponse struct {
+	SessionID uint         `json:"sessionId"`
+	Message   ChatResponse `json:"message"`
+	SendTime  string       `json:"sendTime"`
+	ChatTime  string       `json:"chatTime"`
 }

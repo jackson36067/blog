@@ -16,3 +16,14 @@ type OtherMessageRequestParams struct {
 	PageSize int              `form:"pageSize"`
 	Type     enum.MessageType `form:"type"` // 2评论@ 3点赞收藏 4粉丝
 }
+
+type RemoveMessageRequestParams struct {
+	MessageIdList []uint `json:"messageIdList"`
+}
+
+type SendMessageRequestParams struct {
+	SessionID   uint                    `json:"sessionId"`
+	UserID      uint                    `json:"userId"`
+	Content     string                  `json:"content"`
+	ContentType enum.MessageContentType `json:"contentType"`
+}

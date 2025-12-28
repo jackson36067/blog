@@ -1,8 +1,10 @@
 package api
 
 import (
+	"log"
 	"math"
 	"sort"
+	"time"
 
 	"blog/consts"
 	"blog/dto/request"
@@ -12,28 +14,23 @@ import (
 	"blog/models"
 	"blog/res"
 	"blog/utils"
+	"blog/ws"
 
 	"github.com/gin-gonic/gin"
 )
 
 type MessageApi struct{}
 
-// GetMessageHistory 获取用户聊天记录
-func (MessageApi) GetMessageHistory(c *gin.Context) {
-	userIdAny, _ := c.Get(consts.UserId)
-	// 用户id
-	userId := userIdAny.(uint)
+// GetMessageHistoryView 获取用户聊天记录
+func (MessageApi) GetMessageHistoryView(c *gin.Context) {
 	// 聊天用户id
-	chatUserIdStr := c.Param("id")
-	chatUserId, _ := utils.StringToUint(chatUserIdStr)
+	sessionId := c.Param("id")
 	// 获取当前用户与聊天用户的聊天记录
 	db := global.MysqlDB
 	var messages []models.Message
 	db.Preload("SendUser").
 		Preload("ReceiveUser").
-		Where("status = ? AND type = ?", enum.Normal, enum.PrivateMessage).
-		Where(db.Where("send_user_id = ? AND receive_user_id = ?", userId, chatUserId).
-			Or("send_user_id = ? AND receive_user_id = ?", chatUserId, userId)).
+		Where("status = ? AND type = ? AND session_id = ?", enum.Normal, enum.PrivateMessage, sessionId).
 		Order("send_time ASC").
 		Find(&messages)
 	// 按发送时间（精确到分钟）分组
@@ -55,6 +52,7 @@ func (MessageApi) GetMessageHistory(c *gin.Context) {
 			ChatUsername:   message.ReceiveUser.Username,
 			ChatUserAvatar: message.ReceiveUser.Avatar,
 			Message:        message.Content,
+			SendTime:       message.SendTime.Format("2006-01-02 15:04:05"),
 		}
 		if _, exists := groupedMessages[minuteKey]; !exists {
 			groupedMessages[minuteKey] = []response.ChatResponse{}
@@ -78,10 +76,16 @@ func (MessageApi) GetMessageHistory(c *gin.Context) {
 		chatMessageHistory = append(chatMessageHistory, group)
 	}
 	res.Success(c, chatMessageHistory, "")
+	userIdAny, _ := c.Get(consts.UserId)
+	userId, _ := userIdAny.(uint)
+	// 清空该用户的对该会话的未读消息
+	go func(sessionId string, userId uint) {
+		db.Model(&models.Message{}).Where("session_id = ? AND receive_user_id = ?", sessionId, userId).Update("is_read", true)
+	}(sessionId, userId)
 }
 
-// GetOtherUserMessage 获取其他用户的消息
-func (MessageApi) GetOtherUserMessage(c *gin.Context) {
+// GetOtherUserMessageView 获取用户其他的消息
+func (MessageApi) GetOtherUserMessageView(c *gin.Context) {
 	userIdAny, _ := c.Get(consts.UserId)
 	userId, _ := userIdAny.(uint)
 	// 解析请求参数
@@ -135,4 +139,110 @@ func (MessageApi) GetOtherUserMessage(c *gin.Context) {
 		Data:          otherMessagePagination,
 	}
 	res.Success(c, pagination, "")
+}
+
+// DeleteMessageView 删除消息
+func (MessageApi) DeleteMessageView(c *gin.Context) {
+	var params request.RemoveMessageRequestParams
+	userId, _ := c.Get(consts.UserId)
+	if err := c.ShouldBindJSON(&params); err != nil {
+		res.Fail(c, 400, consts.RequestParamParseError)
+	}
+	db := global.MysqlDB
+	// 删除消息
+	err := db.Delete(&models.Message{}, "id in ? AND receive_user_id = ?", params.MessageIdList, userId).Error
+	if err != nil {
+		res.Fail(c, 400, consts.DeleteMessageError)
+	}
+	res.Success(c, nil, consts.DeleteMessageSuccess)
+}
+
+// SendMessageView 发送消息
+func (MessageApi) SendMessageView(c *gin.Context) {
+	var params request.SendMessageRequestParams
+	userIdAny, _ := c.Get(consts.UserId)
+	userId, _ := userIdAny.(uint)
+	if err := c.ShouldBindJSON(&params); err != nil {
+		res.Fail(c, 400, consts.RequestParamParseError)
+	}
+	tx := global.MysqlDB.Begin()
+	// 新增消息
+	message := &models.Message{
+		Type:          enum.PrivateMessage,
+		SendUserID:    userId,
+		ReceiveUserID: params.UserID,
+		Content:       params.Content,
+		ContentType:   params.ContentType,
+		Status:        enum.Normal,
+		IsRead:        false,
+		SendTime:      time.Now(),
+		SessionID:     &params.SessionID,
+	}
+	if err := tx.Create(message).Error; err != nil {
+		res.Fail(c, 400, err.Error())
+		tx.Rollback()
+		return
+	}
+	// 更改会话状态
+	if err := tx.Model(&models.Session{}).
+		Where("id = ?", params.SessionID).
+		Updates((map[string]any{
+			"latest_message":   message.Content,
+			"latest_chat_time": message.SendTime,
+			"deleted_at_a":     nil,
+			"deleted_at_b":     nil,
+		})).Error; err != nil {
+		res.Fail(c, 400, err.Error())
+		tx.Rollback()
+		return
+	}
+
+	wsm := ws.WsManager
+	userClient := wsm.GetClient(userId)
+	chatUserClient := wsm.GetClient(params.UserID)
+
+	// 至少有一方在线
+	if userClient == nil && chatUserClient == nil {
+		return
+	}
+
+	// 查用户信息（只查一次）
+	var user, chatUser models.User
+	tx.First(&user, "id = ?", userId)
+	tx.First(&chatUser, "id = ?", params.UserID)
+
+	// 构建 WS 消息
+	wsMessage := response.PrivateSendMessageResponse{
+		SendTime: utils.FormatChatTime(message.SendTime),
+		Message: response.ChatResponse{
+			ID:             message.ID,
+			UserID:         userId,
+			Username:       user.Username,
+			UserAvatar:     user.Avatar,
+			ChatUserID:     userId,
+			ChatUsername:   chatUser.Username,
+			ChatUserAvatar: chatUser.Avatar,
+			Message:        params.Content,
+			SendTime:       message.SendTime.Format("2006-01-02 15:04:05"),
+		},
+		SessionID: params.SessionID,
+		ChatTime:  utils.FormatChatTime(message.SendTime),
+	}
+
+	// 分别发送
+	if userClient != nil {
+		_ = wsm.SendToUser(userId, response.SendMessageResponse{
+			Type: "chat",
+			Data: wsMessage,
+		})
+		log.Printf("发送给用户%d消息成功: %s", userClient.UserId, params.Content)
+	}
+	if chatUserClient != nil {
+		_ = wsm.SendToUser(params.UserID, response.SendMessageResponse{
+			Type: "chat",
+			Data: wsMessage,
+		})
+		log.Printf("发送给用户%d消息成功: %s", chatUserClient.UserId, params.Content)
+	}
+	tx.Commit()
 }
