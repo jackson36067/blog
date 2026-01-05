@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"math"
+	"math/rand/v2"
 	"net/http"
 	"strconv"
 	"strings"
@@ -21,26 +23,140 @@ import (
 	"blog/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
 type ArticleApi struct{}
 
-// GetHomeArticleView 根据条件获取文章列表
-func (ArticleApi) GetHomeArticleView(c *gin.Context) {
-	// 判断是游客状态还是登录状态
-	authHeader := c.GetHeader("Authorization")
-	var userId uint
-	var isLoggedIn bool
+// GetRecommendArticleView 获取主页推荐文章列表
+func (ArticleApi) GetRecommendArticleView(c *gin.Context) {
+	// 获取请求参数
+	var q request.RecommendArticleQueryParams
+	err := c.ShouldBindQuery(&q)
+	if err != nil {
+		res.Fail(c, 400, consts.RequestParamParseError)
+	}
+	mysqlClient := global.MysqlDB
+	redisClient := global.RedisDB
+	var articles []models.Article
+	var totalElments int64
+	// 判断用户是否登录
+	if q.UserID == 0 {
+		// 未登录, 返回热度高的文章(高评论, 高点赞, 高收藏综合)
+		start := int64((q.Page - 1) * q.PageSize)
+		stop := start + int64(q.PageSize) - 1
+		articleIds, _ := redisClient.ZRevRange(global.Ctx, consts.HighQualityArticleKey, start, stop).Result()
+		mysqlClient.Model(&models.Article{}).
+			Preload("User").
+			Where("id IN ?", articleIds).
+			Order("browse_count DESC").
+			Find(&articles)
+		totalElments, _ = redisClient.ZCard(global.Ctx, consts.HighQualityArticleKey).Result()
+	} else {
+		// 登录了, 获取推荐文章列表
+		articles, totalElments, err = GetRecommendedWithCacheAndPagination(mysqlClient, redisClient, q.UserID, q.HobbyTags, q.Page, q.PageSize)
+		if err != nil {
+			res.Fail(c, 500, consts.RequestParamParseError)
+		}
+	}
+	articleResponse := service.ArticlesToArticleResponse(articles)
+	pagination := res.Pagination{
+		Page:          q.Page,
+		PageSize:      q.PageSize,
+		TotalElements: totalElments,
+		TotalPages:    int(math.Ceil(float64(totalElments) / float64(q.PageSize))),
+		Data:          articleResponse,
+	}
+	res.Success(c, pagination, "")
+}
 
-	if strings.HasPrefix(authHeader, "Bearer ") {
-		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
-		if claims, err := utils.ParseToken(tokenStr); err == nil {
-			userId = claims.UserID
-			isLoggedIn = true
+func GetRecommendedWithCacheAndPagination(db *gorm.DB, rdb *redis.Client, userID uint, userTags []string, page int, pageSize int) ([]models.Article, int64, error) {
+	// 用户缓存用户首页文章列表
+	cacheKey := fmt.Sprintf(consts.UserRecommendArticleKeyPrefix, userID)
+
+	exists, _ := rdb.Exists(global.Ctx, cacheKey).Result()
+	if exists == 0 {
+		newIDs := GenerateRecommendArticleIds(db, rdb, userTags)
+		rdb.Del(global.Ctx, cacheKey)
+		if len(newIDs) > 0 {
+			// 使用管道(Pipeline)批量写入，效率更高
+			pipe := rdb.Pipeline()
+			for _, id := range newIDs {
+				pipe.RPush(global.Ctx, cacheKey, id)
+			}
+			pipe.Expire(global.Ctx, cacheKey, 1*time.Hour)
+			_, err := pipe.Exec(global.Ctx)
+			if err != nil {
+				return nil, 0, err
+			}
 		}
 	}
 
+	// 2. 获取 Redis 中当前推荐池的总长度
+	total, err := rdb.LLen(global.Ctx, cacheKey).Result()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 3. 从 Redis 分页获取 ID 字符串列表
+	start := int64((page - 1) * pageSize)
+	stop := start + int64(pageSize) - 1
+	idStrings, err := rdb.LRange(global.Ctx, cacheKey, start, stop).Result()
+
+	// 如果这一页没数据，直接返回总数和空数组
+	if err != nil || len(idStrings) == 0 {
+		return []models.Article{}, total, nil
+	}
+
+	// 4. 根据 ID 顺序批量查询数据库详情
+	var articles []models.Article
+	// 保持 Redis 里的洗牌顺序
+	orderBy := fmt.Sprintf("FIELD(id, %s)", strings.Join(idStrings, ","))
+	err = db.Preload("User").Where("id IN ?", idStrings).Order(orderBy).Find(&articles).Error
+
+	return articles, total, err
+}
+
+// GenerateRecommendArticleIds 获取用户感兴趣的文章以及少部分其他文章
+func GenerateRecommendArticleIds(db *gorm.DB, rdb *redis.Client, userHobbyTags []string) []uint {
+	var finallyIds []uint
+	// 根据兴趣推荐以及其他文章比例为4:1
+	recommendCount := 40
+	otherCount := 10
+	userHobbyTagsJSON, _ := json.Marshal(userHobbyTags)
+	var recommendIds []uint
+	// 获取用户感兴趣的文章, 通过用户兴趣标签匹配40篇文章
+	db.Model(&models.Article{}).
+		Where("JSON_OVERLAPS(tag_list, ?)", string(userHobbyTagsJSON)).
+		Order("browse_count DESC"). // 根据查看人数排序
+		Limit(recommendCount).
+		Pluck("id", &recommendIds)
+	// 在Redis中获取高质量文章十篇
+	var otherIds []uint
+	// 取出前四十条高质量文章进行筛选
+	candidates, _ := rdb.ZRevRange(global.Ctx, consts.HighQualityArticleKey, 0, 39).Result()
+	if len(candidates) > 0 {
+		db.Model(&models.Article{}).
+			Where("id IN ?", candidates).
+			Not("JSON_OVERLAPS(tag_list, ?)", string(userHobbyTagsJSON)).
+			Order("browse_count DESC"). // 根据查看人数排序
+			Limit(otherCount).
+			Pluck("id", &otherIds)
+	}
+	// 合并推荐文章和其他文章
+	finallyIds = append(recommendIds, otherIds...)
+	// 打乱文章顺序
+	rand.Shuffle(len(finallyIds), func(i, j int) {
+		finallyIds[i], finallyIds[j] = finallyIds[j], finallyIds[i]
+	})
+	return finallyIds
+}
+
+// GetHomeArticleView 根据条件获取文章列表
+func (ArticleApi) GetHomeArticleView(c *gin.Context) {
+	// 判断是游客状态还是登录状态
+	currentUserId := GetUserIdFromHeader(c)
 	// 解析请求参数
 	var articleQueryParams request.ArticleQueryParams
 	if err := c.ShouldBindQuery(&articleQueryParams); err != nil {
@@ -48,65 +164,86 @@ func (ArticleApi) GetHomeArticleView(c *gin.Context) {
 	}
 	// 封装查询条件
 	db := global.MysqlDB
-	tx := db.Model(&models.Article{}).Preload("Category").Preload("User")
-	if articleQueryParams.UserId != 0 {
-		tx = tx.Where("user_id = ?", articleQueryParams.UserId)
-	}
-	if articleQueryParams.CategoryTitle != "" {
-		var categoryId uint
-		db.Model(&models.ArticleCategory{}).Where("title = ?", articleQueryParams.CategoryTitle).Pluck("id", &categoryId)
-		tx = tx.Where("category_id = ?", categoryId)
-	}
-	if articleQueryParams.Title != "" {
-		tx = tx.Where("title like ?", "%"+articleQueryParams.Title+"%")
-	}
-	if len(articleQueryParams.Tags) > 0 {
-		for _, tag := range articleQueryParams.Tags {
-			// 每个标签都要匹配，意味着文章必须包含这些标签
-			tx = tx.Where("JSON_CONTAINS(tag_list, ?)", fmt.Sprintf(`"%s"`, tag))
-		}
-	}
-
-	tx = tx.Where("status = ?", enum.Published)
-
-	// 游客状态 -> 仅展示公开文章
-	if !isLoggedIn {
-		tx = tx.Where(
-			db.
-				Where("user_id = ?", userId).
-				Or("visibility = ?", enum.Public),
-		)
-	} else { // 登录状态 -> 自己的全部 + 公开文章 + 已关注作者的粉丝文章
-		// 获取我关注的作者列表
-		var followedIDs []uint
-		db.Model(&models.UserFollow{}).
-			Where("follower_id = ?", userId).
-			Pluck("followed_id", &followedIDs)
-		tx = tx.
-			Where(db.
-				Where("user_id = ?", userId).
-				Or("visibility = ?", enum.Public).
-				Or("visibility = ? and user_id in ?", enum.Fans, followedIDs),
-			)
-	}
 
 	page := articleQueryParams.Page
 	pageSize := articleQueryParams.PageSize
-	offset := (page - 1) * pageSize
 	var total int64
-	// 计算总元素数量
-	tx.Count(&total)
 	// 分页查询
 	var articles []models.Article
-	tx.Debug().
+
+	db.Debug().
+		Model(&models.Article{}).
+		Preload("Category").
+		Preload("User").
+		Scopes(HomeArticleFilterScope(articleQueryParams), VisibilityScope(currentUserId)). // 条件过滤
+		Count(&total).
 		Order("created_at desc").
-		Offset(offset).
-		Limit(pageSize).
+		Scopes(res.Paginate(page, pageSize)). // 分页
 		Find(&articles)
 	totalPages := int(math.Ceil(float64(total) / float64(pageSize)))
 	homeArticleResponse := service.ArticlesToArticleResponse(articles)
-	pagination := res.NewPagination(page, pageSize, total, totalPages, homeArticleResponse)
-	res.Success(c, pagination, "")
+	res.Success(c, res.NewPagination(page, pageSize, total, totalPages, homeArticleResponse), "")
+}
+
+// GetUserIdFromHeader 从请求头中的token中解析用户id -> 不走jwt解析中间件的路由使用
+func GetUserIdFromHeader(c *gin.Context) uint {
+	token := c.GetHeader("Authorization")
+	if token == "" {
+		return 0
+	}
+	// 拿到后半部分
+	token = strings.Split(token, "Bearer ")[1]
+	// 如果token格式不对则返回false
+	if token == "" {
+		return 0
+	}
+	claims, err := utils.ParseToken(token)
+	if err != nil {
+		return 0
+	}
+	return claims.UserID
+}
+
+// HomeArticleFilterScope 处理搜索过滤
+func HomeArticleFilterScope(q request.ArticleQueryParams) func(db *gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		db = db.Where("status = ?", enum.Published)
+		if q.UserId != 0 {
+			db = db.Where("user_id = ?", q.UserId)
+		}
+		if q.Title != "" {
+			db = db.Where("title LIKE ?", "%"+q.Title+"%")
+		}
+		if q.CategoryTitle != "" && q.CategoryTitle != "全部" {
+			// 使用子查询，减少一次代码层面的数据库交互
+			db = db.Where("category_id IN (SELECT id FROM article_category WHERE title = ?)", q.CategoryTitle)
+		}
+		if len(q.Tags) > 0 {
+			tagsJson, _ := json.Marshal(q.Tags)
+			db = db.Where("JSON_OVERLAPS(tag_list, ?)", string(tagsJson)) // 只要包含这个标签的就可以
+		}
+		return db
+	}
+}
+
+// VisibilityScope 处理复杂的可见性逻辑
+func VisibilityScope(currentUserId uint) func(db *gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		if currentUserId == 0 {
+			return db.Where("visibility = ?", enum.Public)
+		}
+
+		// 登录状态：自己的 OR 公开的 OR (粉丝可见且已关注)
+		subQueryFollow := global.MysqlDB.Model(&models.UserFollow{}).
+			Select("followed_id").
+			Where("follower_id = ?", currentUserId)
+
+		return db.Where(
+			global.MysqlDB.Where("user_id = ?", currentUserId).
+				Or("visibility = ?", enum.Public).
+				Or("visibility = ? AND user_id IN (?)", enum.Fans, subQueryFollow),
+		)
+	}
 }
 
 // GetUserTopArticleListView 获取用户置顶文章
@@ -154,40 +291,47 @@ func (ArticleApi) GetArticleHotTagsAndRandCategoryView(c *gin.Context) {
 
 // GetUserArticlePaginationView 分页获取用户的文章
 func (ArticleApi) GetUserArticlePaginationView(c *gin.Context) {
-	var myArticleQueryParam request.MyArticleQueryParams
-	var userId uint
-	if err := c.ShouldBindQuery(&myArticleQueryParam); err != nil {
+	var q request.MyArticleQueryParams
+	if err := c.ShouldBindQuery(&q); err != nil {
 		res.Fail(c, http.StatusBadRequest, err.Error())
 	}
 	db := global.MysqlDB
-	// 根据用户名获取用户id
-	db.Model(&models.User{}).Where("username = ?", myArticleQueryParam.Username).Pluck("id", &userId)
-	tx := db.Model(&models.Article{}).Preload("User")
-	tx = tx.Where("user_id = ?", userId)
-	if myArticleQueryParam.Visibility == enum.Private {
-		tx = tx.Where("visibility = ?", enum.Private)
-	}
-	if myArticleQueryParam.Status == enum.Draft {
-		tx = tx.Where("status = ?", enum.Draft)
-	} else {
-		tx = tx.Where("status = ?", enum.Published)
-	}
-	startTime := myArticleQueryParam.StartTime
-	endTime := myArticleQueryParam.EndTime
-	if !startTime.IsZero() && !endTime.IsZero() {
-		tx = tx.Where("created_at BETWEEN ? AND ?", startTime, endTime)
-	}
-	page := myArticleQueryParam.Page
-	pageSize := myArticleQueryParam.PageSize
-	offset := (page - 1) * pageSize
+	page := q.Page
+	pageSize := q.PageSize
 	var articleList []models.Article
 	var total int64
-	tx.Count(&total)
-	tx.Debug().Order(fmt.Sprintf("%s %s", myArticleQueryParam.OrderBy, myArticleQueryParam.OrderType)).Offset(offset).Limit(pageSize).Find(&articleList)
+	orderStr := fmt.Sprintf("%s %s", q.OrderBy, q.OrderType)
+	db.Debug().
+		Model(&models.Article{}).
+		Preload("User").
+		Scopes(UserArticleFilterScope(q)). // 条件过滤
+		Count(&total).
+		Order(orderStr).
+		Scopes(res.Paginate(page, pageSize)). // 分页处理
+		Find(&articleList)
 	totalPages := int(math.Ceil(float64(total) / float64(pageSize)))
 	myArticleList := service.ArticlesToArticleResponse(articleList)
-	pagination := res.NewPagination(page, pageSize, total, totalPages, myArticleList)
-	res.Success(c, pagination, "")
+	res.Success(c, res.NewPagination(page, pageSize, total, totalPages, myArticleList), "")
+}
+
+func UserArticleFilterScope(q request.MyArticleQueryParams) func(db *gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		db = db.Where("user_id = (SELECT id FROM user WHERE username = ?)", q.Username)
+		if q.Visibility == enum.Private {
+			db = db.Where("visibility = ?", enum.Private)
+		}
+		if q.Status == enum.Draft {
+			db = db.Where("status = ?", enum.Draft)
+		} else {
+			db = db.Where("status = ?", enum.Published)
+		}
+		startTime := q.StartTime
+		endTime := q.EndTime
+		if !startTime.IsZero() && !endTime.IsZero() {
+			db = db.Where("created_at BETWEEN ? AND ?", startTime, endTime)
+		}
+		return db
+	}
 }
 
 // GetUserArticleCreateProcessView 获取文章创作历程
@@ -221,9 +365,32 @@ func (ArticleApi) GetArticleCategoryListView(c *gin.Context) {
 
 // GetArticleTagListView 获取文章标签列表
 func (ArticleApi) GetArticleTagListView(c *gin.Context) {
+	redis := global.RedisDB
 	db := global.MysqlDB
 	var articleTagList []models.ArticleTag
-	db.Find(&articleTagList)
+
+	val, err := redis.Get(global.Ctx, consts.ArticleTagListRedisKey).Result()
+
+	if err == nil {
+		if err := json.Unmarshal([]byte(val), &articleTagList); err == nil {
+			res.Success(c, articleTagList, "")
+			return
+		}
+	}
+
+	if err := db.Find(&articleTagList).Error; err != nil {
+		res.Fail(c, 400, "")
+		return
+	}
+
+	jsonTagList, _ := json.Marshal(articleTagList)
+	expiration := 3 * 24 * time.Hour
+
+	// 使用 Set 操作存储完整 JSON 串
+	err = redis.Set(global.Ctx, consts.ArticleTagListRedisKey, jsonTagList, expiration).Err()
+	if err != nil {
+		log.Fatalf("redis写入失败")
+	}
 	res.Success(c, articleTagList, "")
 }
 
@@ -466,8 +633,7 @@ func (ArticleApi) GetArticleCommentsByPaginationView(c *gin.Context) {
 		Preload("User").
 		Where("article_id = ? AND root_parent_id IS NULL", articleId).
 		Order("created_at DESC").
-		Offset((params.Page - 1) * params.PageSize).
-		Limit(params.PageSize).
+		Scopes(res.Paginate(params.Page, params.PageSize)).
 		Find(&rootComments)
 	// 抽取 rootIDs
 	rootIDs := make([]uint, 0, len(rootComments))

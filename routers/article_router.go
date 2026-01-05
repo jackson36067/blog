@@ -11,7 +11,8 @@ func ArticleRouter(router *gin.RouterGroup) {
 	app := api.App.ArticleApi
 	// 文章路由不需要登录的路由组
 	public := router.Group("/article")
-	public.GET("/info", app.GetHomeArticleView)
+	public.GET("/list", app.GetHomeArticleView)
+	public.GET("/recommend", app.GetRecommendArticleView)
 	// 获取文章的分类以及标签
 	public.GET("/meta", app.GetArticleHotTagsAndRandCategoryView)
 	public.GET("/category/list", app.GetArticleCategoryListView)

@@ -5,6 +5,7 @@ import (
 	"blog/flags"
 	"blog/global"
 	"blog/routers"
+	"blog/task"
 )
 
 func main() {
@@ -22,5 +23,7 @@ func main() {
 	global.MQ = core.InitRabbitMQ()
 	// 数据库迁移
 	flags.Run()
+	// 开启定时任务
+	task.StartCronJobs(global.MysqlDB, global.RedisDB)
 	routers.Run()
 }

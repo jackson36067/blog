@@ -1,12 +1,13 @@
 package service
 
 import (
-	"blog/dto/response"
-	"blog/models"
-	"blog/utils"
 	"sort"
 	"strings"
 	"time"
+
+	"blog/dto/response"
+	"blog/models"
+	"blog/utils"
 
 	"gorm.io/gorm"
 )
@@ -42,7 +43,7 @@ func GroupArticlesByYearAndMonth(articleList []response.ArticleStatistic) []resp
 
 		// 提取当前年份的所有月份 key（方便排序）
 		monthKeys := make([]int, 0, len(monthMap))
-		for m, _ := range monthMap {
+		for m := range monthMap {
 			monthKeys = append(monthKeys, m)
 		}
 		// 对月份进行升序排序（1 月到 12 月）
@@ -105,7 +106,6 @@ func ArticlesToArticleResponse(articles []models.Article) []response.ArticleResp
 
 // GetArticleGroupedByTime 获取文章通过时间分组结果
 func GetArticleGroupedByTime(browseArticles []models.UserArticleBrowseHistory) []response.ArticleGroup {
-
 	groupMap := make(map[string][]response.ArticleResponse)
 	orderKeys := make([]string, 0) // 👉 保存出现顺序
 
@@ -182,7 +182,6 @@ func UnifyArticleDetailResult(article models.Article, isLike bool, isCollect boo
 
 // GetArticleComments 获取文章评论
 func GetArticleComments(db *gorm.DB, rootIDs []uint, rootComments []models.Comment, token string) []*response.CommentResponse {
-
 	// 如果根评论为空则直接返回
 	if len(rootComments) == 0 {
 		return []*response.CommentResponse{}

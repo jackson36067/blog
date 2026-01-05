@@ -1,6 +1,8 @@
 package api
 
 import (
+	"net/http"
+
 	"blog/consts"
 	"blog/core"
 	"blog/enum"
@@ -8,15 +10,13 @@ import (
 	"blog/models"
 	"blog/res"
 	"blog/utils"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 )
 
-type LoginApi struct {
-}
+type LoginApi struct{}
 
 type LoginRequest struct {
 	LoginType enum.LoginType `json:"loginType"`
@@ -32,24 +32,21 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	UserID       uint   `json:"userId"`
-	Username     string `json:"username"`
-	Nickname     string `json:"nickname"`
-	Avatar       string `json:"avatar"`
-	Token        string `json:"token"`
-	Email        string `json:"email"`
-	CodeAge      int    `json:"codeAge"`
-	Fans         int    `json:"fans"`
-	Following    int    `json:"following"`
-	ArticleLikes int    `json:"articleLikes"`
-}
-
-func NewLoginResponse(userID uint, username string, nickname string, avatar string, token string, email string, codeAge int, fans int, following int, articleLikes int) *LoginResponse {
-	return &LoginResponse{UserID: userID, Username: username, Nickname: nickname, Avatar: avatar, Token: token, Email: email, CodeAge: codeAge, Fans: fans, Following: following, ArticleLikes: articleLikes}
+	UserID       uint     `json:"userId"`
+	Username     string   `json:"username"`
+	Nickname     string   `json:"nickname"`
+	Avatar       string   `json:"avatar"`
+	Token        string   `json:"token"`
+	Email        string   `json:"email"`
+	CodeAge      int      `json:"codeAge"`
+	Fans         int      `json:"fans"`
+	Following    int      `json:"following"`
+	ArticleLikes int      `json:"articleLikes"`
+	Hobby        []string `json:"hobby"`
 }
 
 func (LoginApi) LoginView(c *gin.Context) {
-	//c.ShouldBindJSON()
+	// c.ShouldBindJSON()
 	var loginRequest LoginRequest
 	// 解析请求体json参数
 	if err := c.ShouldBindJSON(&loginRequest); err != nil {
@@ -65,7 +62,7 @@ func (LoginApi) LoginView(c *gin.Context) {
 			return
 		}
 		// 根据用户名查询该用户
-		db.Take(&user, "username = ?", loginRequest.Username)
+		db.Preload("UserConfig").First(&user, "username = ?", loginRequest.Username)
 		// 校验用户是否存在
 		if user.ID == 0 {
 			res.Fail(c, http.StatusBadRequest, consts.UserNotFound)
@@ -83,7 +80,7 @@ func (LoginApi) LoginView(c *gin.Context) {
 			return
 		}
 		// 判断邮箱是否存在
-		db.Take(&user, "email = ?", loginRequest.Email)
+		db.Preload("UserConfig").First(&user, "email = ?", loginRequest.Email)
 		if user.ID == 0 {
 			res.Fail(c, http.StatusBadRequest, consts.UserNotFound)
 			return
@@ -111,18 +108,19 @@ func (LoginApi) LoginView(c *gin.Context) {
 	db.Model(&models.Article{}).Where("user_id = ?", user.ID).Pluck("id", &articleIds)
 	db.Model(&models.ArticleLike{}).Where("article_id in (?)", articleIds).Count(&articleLikesCount)
 	// 生成用户信息结构体返回
-	var loginResponse = NewLoginResponse(
-		user.ID,
-		user.Username,
-		user.Nickname,
-		user.Avatar,
-		token,
-		user.Email,
-		user.CodeAge,
-		int(fansCount),
-		int(followedCount),
-		int(articleLikesCount),
-	)
+	loginResponse := LoginResponse{
+		UserID:       user.ID,
+		Username:     user.Username,
+		Nickname:     user.Nickname,
+		Avatar:       user.Avatar,
+		Token:        token,
+		Email:        user.Email,
+		CodeAge:      user.CodeAge,
+		Fans:         int(fansCount),
+		Following:    int(followedCount),
+		ArticleLikes: int(articleLikesCount),
+		Hobby:        user.UserConfig.HobbyTags,
+	}
 	res.Success(c, loginResponse, consts.LoginSuccess)
 	// 异步向用户登录表中存储用户登录数据
 	go func(userId uint, loginType enum.LoginType) {
@@ -142,7 +140,7 @@ func (LoginApi) LoginView(c *gin.Context) {
 			logrus.Errorf("ip解析失败: %s", err.Error())
 			return
 		}
-		var userLogin = models.UserLogin{
+		userLogin := models.UserLogin{
 			UserID: userId,
 			IP:     ip,
 			Addr:   addr,

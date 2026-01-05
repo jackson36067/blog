@@ -24,8 +24,10 @@ const (
 
 // Redis相关常量
 const (
-	// EmailCodeKeyPrefix 以邮箱为结尾
-	EmailCodeKeyPrefix = "email:code:"
+	EmailCodeKeyPrefix            = "email:code:"
+	ArticleTagListRedisKey        = "article:tags"
+	UserRecommendArticleKeyPrefix = "user:recommend:article:%d"
+	HighQualityArticleKey         = "article:high:quality"
 )
 
 // Jwt相关常量

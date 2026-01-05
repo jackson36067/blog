@@ -1,9 +1,17 @@
 package request
 
 import (
-	"blog/enum"
 	"time"
+
+	"blog/enum"
 )
+
+type RecommendArticleQueryParams struct {
+	UserID    uint     `form:"userId"`
+	Page      int      `form:"page" binding:"required"`
+	PageSize  int      `form:"pageSize" binding:"required"`
+	HobbyTags []string `form:"hobbyTags"`
+}
 
 type ArticleQueryParams struct {
 	Page          int      `form:"page" binding:"required"`
