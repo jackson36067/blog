@@ -367,31 +367,49 @@ func (ArticleApi) GetArticleCategoryListView(c *gin.Context) {
 func (ArticleApi) GetArticleTagListView(c *gin.Context) {
 	redis := global.RedisDB
 	db := global.MysqlDB
-	var articleTagList []models.ArticleTag
-
 	val, err := redis.Get(global.Ctx, consts.ArticleTagListRedisKey).Result()
-
+	var articleTreeList []*response.ArticleTagTree
 	if err == nil {
-		if err := json.Unmarshal([]byte(val), &articleTagList); err == nil {
-			res.Success(c, articleTagList, "")
+		if err := json.Unmarshal([]byte(val), &articleTreeList); err == nil {
+			res.Success(c, articleTreeList, "")
 			return
 		}
 	}
-
-	if err := db.Find(&articleTagList).Error; err != nil {
+	var articleTagList []models.ArticleTag
+	if err := db.Find(&articleTagList, "p_id = ?", 0).Error; err != nil {
 		res.Fail(c, 400, "")
 		return
 	}
-
-	jsonTagList, _ := json.Marshal(articleTagList)
+	articleTreeList = GetArticleTagTree(db, articleTagList)
+	jsonTagList, _ := json.Marshal(articleTreeList)
 	expiration := 3 * 24 * time.Hour
-
-	// 使用 Set 操作存储完整 JSON 串
 	err = redis.Set(global.Ctx, consts.ArticleTagListRedisKey, jsonTagList, expiration).Err()
 	if err != nil {
 		log.Fatalf("redis写入失败")
 	}
-	res.Success(c, articleTagList, "")
+	res.Success(c, articleTreeList, "")
+}
+
+// GetArticleTagTree 递归获取文章标签树
+func GetArticleTagTree(db *gorm.DB, articleTagList []models.ArticleTag) []*response.ArticleTagTree {
+	var articleTagTreeList []*response.ArticleTagTree
+	for _, articleTag := range articleTagList {
+		articleTagTree := &response.ArticleTagTree{
+			Id:          articleTag.ID,
+			Title:       articleTag.Title,
+			BrowseCount: articleTag.BrowseCount,
+			Children:    nil,
+		}
+		var children []models.ArticleTag
+		db.Model(&models.ArticleTag{}).
+			Where("p_id = ?", articleTag.ID).
+			Find(&children)
+		if len(children) > 0 {
+			articleTagTree.Children = GetArticleTagTree(db, children)
+		}
+		articleTagTreeList = append(articleTagTreeList, articleTagTree)
+	}
+	return articleTagTreeList
 }
 
 // GetArticleDetailView 获取文章详情信息

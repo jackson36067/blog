@@ -1,9 +1,10 @@
 package response
 
 import (
+	"time"
+
 	"blog/enum"
 	"blog/models"
-	"time"
 )
 
 type ArticleResponse struct {
@@ -59,4 +60,11 @@ type ArticleYearStat struct {
 type ArticleGroup struct {
 	GroupTime string            `json:"groupTime"`
 	Articles  []ArticleResponse `json:"articles"`
+}
+
+type ArticleTagTree struct {
+	Id          uint              `json:"id"`
+	Title       string            `json:"title"`
+	BrowseCount int               `json:"browseCount"`
+	Children    []*ArticleTagTree `json:"children"`
 }
