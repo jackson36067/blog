@@ -19,7 +19,8 @@ type ArticleQueryParams struct {
 	Title         string   `form:"title"`         // 文章标题
 	CategoryTitle string   `form:"categoryTitle"` // 文章分类标题
 	Tags          []string `form:"tags"`          // 文章标签
-	UserId        uint     `form:"userId"`        // 文章所属用户
+	ArticleUserID uint     `form:"articleUserId"` // 文章所属用户
+	UserID        uint     `form:"userId"`        // 用户id
 }
 
 type MyArticleQueryParams struct {

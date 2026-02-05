@@ -155,22 +155,20 @@ func GenerateRecommendArticleIds(db *gorm.DB, rdb *redis.Client, userHobbyTags [
 
 // GetHomeArticleView 根据条件获取文章列表
 func (ArticleApi) GetHomeArticleView(c *gin.Context) {
-	// 判断是游客状态还是登录状态
-	currentUserId := GetUserIdFromHeader(c)
 	// 解析请求参数
 	var articleQueryParams request.ArticleQueryParams
 	if err := c.ShouldBindQuery(&articleQueryParams); err != nil {
 		res.Fail(c, http.StatusBadRequest, err.Error())
 	}
+	// 判断是游客状态还是登录状态
+	currentUserId := articleQueryParams.UserID
 	// 封装查询条件
 	db := global.MysqlDB
-
 	page := articleQueryParams.Page
 	pageSize := articleQueryParams.PageSize
 	var total int64
 	// 分页查询
 	var articles []models.Article
-
 	db.Debug().
 		Model(&models.Article{}).
 		Preload("Category").
@@ -208,8 +206,8 @@ func GetUserIdFromHeader(c *gin.Context) uint {
 func HomeArticleFilterScope(q request.ArticleQueryParams) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		db = db.Where("status = ?", enum.Published)
-		if q.UserId != 0 {
-			db = db.Where("user_id = ?", q.UserId)
+		if q.ArticleUserID != 0 {
+			db = db.Where("user_id = ?", q.ArticleUserID)
 		}
 		if q.Title != "" {
 			db = db.Where("title LIKE ?", "%"+q.Title+"%")
